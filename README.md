@@ -1,7 +1,7 @@
 <!--
 ---
-name: Remote MCP  using Azure API Management
-description: Use Azure API Management as the AI Gateway for MCP Servers using Azure Functions  
+name: Building AI Agents with Azure API Management and Model Context Protocol
+description: Build scalable AI Agents using Azure API Management as the AI Gateway for MCP Servers with Azure Functions  
 page_type: sample
 languages:
 - python
@@ -11,287 +11,344 @@ products:
 - azure-api-management
 - azure-functions
 - azure
-urlFragment: remote-mcp-apim-functions-python
+- ai
+urlFragment: ai-agents-apim-mcp-functions-python
 ---
 -->
 
-# Secure Remote MCP Servers using Azure API Management (Experimental)
+# Building AI Agents with Azure API Management and Model Context Protocol
 
-![Diagram](mcp-client-authorization.gif)
+![AI Agent Architecture](mcp-client-authorization.gif)
 
-Azure API Management acts as the [AI Gateway](https://github.com/Azure-Samples/AI-Gateway) for MCP servers. 
+Build powerful AI Agents that can access enterprise tools and data through the **Model Context Protocol (MCP)**. This sample demonstrates how to use **Azure API Management** as an intelligent [AI Gateway](https://github.com/Azure-Samples/AI-Gateway) to create scalable, secure MCP servers that your AI agents can interact with.
 
-This sample implements the latest [MCP Authorization specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization#2-10-third-party-authorization-flow)
+## What You'll Build
 
-This is a [sequence diagram](infra/app/apim-oauth/diagrams/diagrams.md) to understand the flow.
+This solution enables you to:
 
-## Deploy Remote MCP Server to Azure
+🤖 **Create AI Agent Tools**: Build custom tools that AI agents can discover and use  
+🔧 **Extend Agent Capabilities**: Give agents access to enterprise systems, databases, and APIs  
+🌐 **Scale Agent Infrastructure**: Deploy MCP servers that handle multiple concurrent agent sessions  
+🛡️ **Secure Agent Access**: Implement proper authentication and authorization for agent interactions  
 
-1. Register `Microsoft.App` resource provider.
-    * If you are using Azure CLI, run `az provider register --namespace Microsoft.App --wait`.
-    * If you are using Azure PowerShell, run `Register-AzResourceProvider -ProviderNamespace Microsoft.App`. Then run `(Get-AzResourceProvider -ProviderNamespace Microsoft.App).RegistrationState` after some time to check if the registration is complete.
+### Available MCP Tools
 
-2. Run this [azd](https://aka.ms/azd) command to provision the api management service, function app(with code) and all other required Azure resources
+The sample includes three ready-to-use agent tools:
 
-    ```shell
-    azd up
+| Tool | Purpose | AI Agent Use Case |
+|------|---------|-------------------|
+| `hello_mcp` | Simple greeting tool | Test agent connectivity and basic tool calling |
+| `save_snippet` | Store code/text snippets | Let agents save information for later retrieval |
+| `get_snippet` | Retrieve stored snippets | Enable agents to access previously saved data |
+
+This architecture follows the latest [MCP Authorization specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization#2-10-third-party-authorization-flow) and provides a [detailed sequence diagram](infra/app/apim-oauth/diagrams/diagrams.md) of the agent interaction flow.
+
+## Quick Start: Deploy Your AI Agent Backend
+
+Get your AI agent infrastructure running in minutes:
+
+1. **Register Azure Resource Provider** (one-time setup)
+    ```bash
+    # Using Azure CLI
+    az provider register --namespace Microsoft.App --wait
+    
+    # Using Azure PowerShell  
+    Register-AzResourceProvider -ProviderNamespace Microsoft.App
     ```
 
-### Test with MCP Inspector
+2. **Deploy the Complete Solution**
+    ```bash
+    azd up
+    ```
+    
+    This single command provisions:
+    - 🏗️ Azure API Management (AI Gateway)
+    - ⚡ Azure Functions (MCP Tools Runtime)  
+    - 💾 Storage Account (Agent Data Persistence)
+    - 🔐 Authentication & Authorization
+    - 📊 Monitoring & Logging
 
-1. In a **new terminal window**, install and run MCP Inspector
+## Connect Your AI Agent
 
-    ```shell
+### Option 1: Use MCP Inspector (Interactive Testing)
+
+Perfect for development and testing your agent tools:
+
+1. **Launch MCP Inspector**
+    ```bash
     npx @modelcontextprotocol/inspector
     ```
 
-1. CTRL click to load the MCP Inspector web app from the URL displayed by the app (e.g. http://127.0.0.1:6274/#resources)
-1. Set the transport type to `SSE`
-1. Set the URL to your running API Management SSE endpoint displayed after `azd up` and **Connect**:
+2. **Connect to Your Agent Backend**
+   - Open the MCP Inspector web app (e.g. http://127.0.0.1:6274/#resources)
+   - Set transport type to `SSE`
+   - Enter your APIM endpoint: `https://<your-apim-service>.azure-api.net/mcp/sse`
+   - Click **Connect**
 
-    ```shell
-    https://<apim-servicename-from-azd-output>.azure-api.net/mcp/sse
-    ```
+3. **Interact with Agent Tools**
+   - Click **List Tools** to see available capabilities
+   - Select any tool (e.g., `hello_mcp`) and click **Run Tool**
+   - Test agent tool responses and behavior
 
-5. **List Tools**.  Click on a tool and **Run Tool**.
+### Option 2: Automated Testing & Integration
 
-### Test with Python Script
-
-For automated testing and validation, use the included test script:
+For CI/CD and automated validation of your agent backend:
 
 ```bash
 python test_mcp_fixed_session.py
 ```
 
-This test validates the complete MCP protocol flow including:
-- ✅ SSE session establishment
-- ✅ Tool discovery (`tools/list`)
-- ✅ Tool execution (`hello_mcp`, `get_snippet`, `save_snippet`)
-- ✅ Response streaming via SSE
+This comprehensive test validates your AI agent infrastructure:
+- 🔗 **Agent Connectivity**: MCP session establishment via SSE
+- 🛠️ **Tool Discovery**: Agent can find available tools (`tools/list`)
+- 🚀 **Tool Execution**: Agent can successfully call tools and get responses
+- 📡 **Real-time Communication**: Streaming responses via Server-Sent Events
 
-See [TESTING.md](TESTING.md) for detailed testing instructions and expected outputs.
-
+**Expected Agent Test Results:**
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                          🎉 MCP Server Test Results                              │
+│                    🤖 AI Agent Backend Validation                               │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│  🔗 SSE Session: ✅ SUCCESS    🛠️  Tool Discovery: ✅ SUCCESS                    │
-│  🚀 Tool Execution: ✅ SUCCESS  📊 All Tests: 🎉 PASSED                         │
+│  🔗 Agent Session: ✅ CONNECTED   🛠️  Tool Discovery: ✅ SUCCESS                │
+│  🚀 Tool Execution: ✅ SUCCESS    📊 Agent Backend: 🎉 READY                   │
 │                                                                                 │
-│  📋 Available Tools: hello_mcp, get_snippet, save_snippet                      │
+│  🤖 Available Agent Tools: hello_mcp, get_snippet, save_snippet               │
 └─────────────────────────────────────────────────────────────────────────────────┘
-```  
+```
+
+📖 **Detailed Testing Guide**: See [TESTING.md](TESTING.md) for complete testing instructions, troubleshooting, and integration examples.  
 
 
-## Technical Architecture Overview
+## AI Agent Architecture Overview
 
-This solution deploys a secure MCP (Model Context Protocol) server infrastructure on Azure. The architecture implements a multi-layered security model with Azure API Management serving as an intelligent gateway that handles authentication, authorization, and request routing.
+This solution creates a scalable, enterprise-ready backend for AI agents using the Model Context Protocol (MCP). Azure API Management acts as an intelligent AI Gateway that enables agents to discover, authenticate with, and execute tools across your organization.
 
-![overview diagram](overview.png)
+![AI Agent Architecture](overview.png)
 
-### Deployed Azure Resources
+### How AI Agents Interact with Your Backend
 
-The infrastructure provisions the following Azure resources:
+```mermaid
+graph TB
+    A[🤖 AI Agent] --> B[🌐 Azure API Management<br/>AI Gateway]
+    B --> C[⚡ Azure Functions<br/>MCP Tools Runtime]
+    C --> D[💾 Azure Storage<br/>Agent Data]
+    C --> E[🔧 Your Enterprise APIs<br/>Databases, Services]
+    
+    B --> F[🔐 Authentication<br/>OAuth 2.0 + PKCE]
+    B --> G[📊 Monitoring<br/>Agent Usage Analytics]
+```
 
-#### Core Gateway Infrastructure
-- **Azure API Management (APIM)** - The central security gateway that exposes both OAuth and MCP APIs
-  - **SKU**: BasicV2 (configurable)
-  - **Identity**: System-assigned and user-assigned managed identities
-  - **Purpose**: Handles authentication flows, request validation, and secure proxying to backend services
+**Agent Interaction Flow:**
+1. 🤖 **Agent Discovery**: AI agent connects to your MCP server endpoint
+2. 🔍 **Tool Discovery**: Agent queries available tools (`tools/list`)
+3. 🚀 **Tool Execution**: Agent calls specific tools with parameters (`tools/call`)
+4. 📡 **Real-time Responses**: Agent receives results via streaming responses
+5. 🧠 **Agent Learning**: Agent incorporates tool results into its reasoning
 
-#### Backend Compute
-- **Azure Function App** - Hosts the MCP server implementation
-  - **Runtime**: Python 3.11 on Flex Consumption plan
-  - **Authentication**: Function-level authentication with managed identity integration
-  - **Purpose**: Executes MCP tools and operations (snippet management in this example)
+### Azure Infrastructure for AI Agents
 
-#### Storage and Data
-- **Azure Storage Account** - Provides multiple storage functions
-  - **Function hosting**: Stores function app deployment packages
-  - **Application data**: Blob container for snippet storage
-  - **Security**: Configured with managed identity access and optional private endpoints
+The solution automatically provisions these Azure resources to support your AI agents:
 
-#### Security and Identity
-- **User-Assigned Managed Identity** - Enables secure service-to-service authentication
-  - **Purpose**: Allows Function App to access Storage and Application Insights without secrets
-  - **Permissions**: Storage Blob Data Owner, Storage Queue Data Contributor, Monitoring Metrics Publisher
+#### 🌐 AI Gateway Layer
+- **Azure API Management (APIM)** - Smart routing and management for AI agent requests
+  - **Agent Authentication**: OAuth 2.0/PKCE flow for secure agent access
+  - **Tool Discovery**: Exposes MCP protocol endpoints for agent tool discovery  
+  - **Rate Limiting**: Prevents agent abuse and manages costs
+  - **Analytics**: Tracks agent usage patterns and tool popularity
 
-- **Entra ID Application Registration** - OAuth2/OpenID Connect client for authentication
-  - **Purpose**: Enables third-party authorization flow per MCP specification
-  - **Configuration**: PKCE-enabled public client with custom redirect URIs
+#### ⚡ Agent Tool Runtime  
+- **Azure Functions** - Serverless execution of MCP tools for agents
+  - **Python 3.11 Runtime**: Fast startup and execution for agent tool calls
+  - **Auto-scaling**: Handles multiple concurrent agent sessions
+  - **Custom Tools**: Easy to extend with your own agent capabilities
+  - **Integration Ready**: Connect to databases, APIs, and enterprise systems
 
-#### Monitoring and Observability
-- **Application Insights** - Provides telemetry and monitoring
-- **Log Analytics Workspace** - Centralized logging and analytics
+#### 💾 Agent Data Persistence
+- **Azure Storage Account** - Persistent storage for agent data and tool state
+  - **Blob Storage**: Store files, documents, and large data that agents can access
+  - **Tool State**: Maintain context between agent sessions
+  - **Secure Access**: Managed identity integration for secure data access
 
-#### Optional Network Security
-- **Virtual Network (VNet)** - When `vnetEnabled` is true
-  - **Private Endpoints**: Secure connectivity to Storage Account
-  - **Network Isolation**: Functions and storage communicate over private network
+#### 🔐 Security & Identity (Enterprise-Ready)
+- **Managed Identity**: Passwordless authentication between Azure services
+- **Entra ID Integration**: Enterprise SSO and user management
+- **Network Security**: Optional VNet isolation for sensitive agent workloads
 
-### Why These Resources?
+#### 📊 Agent Monitoring
+- **Application Insights**: Monitor agent tool usage, performance, and errors
+- **Log Analytics**: Detailed logging of agent interactions and tool executions
+- **Dashboards**: Track agent adoption and tool effectiveness
 
-**Azure API Management** serves as the security perimeter, implementing:
-- OAuth 2.0/PKCE authentication flows per MCP specification
-- Session key encryption/decryption for secure API access  
-- Request validation and header injection
-- Rate limiting and throttling capabilities
-- Centralized policy management
+### Why This Architecture for AI Agents?
 
-**Azure Functions** provides:
-- Serverless, pay-per-use compute model
-- Native integration with Azure services
-- Automatic scaling based on demand
-- Built-in monitoring and diagnostics
+**🌐 Azure API Management as AI Gateway**
+- **Agent Onboarding**: Simplified connection process for AI agents
+- **Tool Governance**: Control which tools agents can access
+- **Usage Analytics**: Understand how agents use your tools
+- **Cost Management**: Rate limiting and usage monitoring
+- **Multi-Agent Support**: Handle requests from multiple AI agents simultaneously
 
-**Managed Identities** eliminate the need for:
-- Service credentials management
-- Secret rotation processes
-- Credential exposure risks
+**⚡ Azure Functions for Agent Tools**
+- **Pay-per-Use**: Only pay when agents actually use tools
+- **Instant Scaling**: Handle sudden spikes in agent activity
+- **Language Flexibility**: Write tools in Python, JavaScript, C#, Java, etc.
+- **Enterprise Integration**: Easy connections to existing systems and data
 
-## Azure API Management Configuration Details
+**🔧 Model Context Protocol (MCP) Benefits**
+- **Standardized Interface**: Any MCP-compatible agent can use your tools
+- **Tool Discovery**: Agents automatically discover available capabilities
+- **Streaming Responses**: Real-time communication for better agent experience
+- **Extensible**: Add new tools without changing agent code
 
-The APIM instance is configured with two primary APIs that work together to implement the MCP authorization specification:
+## Extending Your AI Agent Capabilities
 
-### OAuth API (`/oauth/*`)
+### Adding Custom Tools for Your Agents
 
-This API implements the complete OAuth 2.0 authorization server functionality required by the MCP specification:
+The solution is designed for easy extension. Here's how to add your own agent tools:
 
-#### Endpoints and Operations
+#### 1. Create a New Tool Function
 
-**Authorization Endpoint** (`GET /authorize`)
-- **Purpose**: Initiates the OAuth 2.0/PKCE flow
-- **Policy Logic**:
-  1. Extracts PKCE parameters from MCP client request
-  2. Checks for existing user consent (via cookies)
-  3. Redirects to consent page if consent not granted
-  4. Generates new PKCE parameters for Entra ID communication
-  5. Stores authentication state in APIM cache
-  6. Redirects user to Entra ID for authentication
+Add a new function to `src/function_app.py`:
 
-**Consent Management** (`GET/POST /consent`)
-- **Purpose**: Handles user consent for MCP client access
-- **Features**: Consent persistence via secure cookies
+```python
+@app.generic_trigger(
+    arg_name="context",
+    type="mcpToolTrigger", 
+    toolName="get_weather",
+    description="Get current weather for a location",
+    toolProperties='[{"propertyName": "location", "propertyType": "string", "description": "City name"}]',
+)
+def get_weather(context) -> str:
+    """Get weather data for AI agents"""
+    args = json.loads(context)["arguments"]
+    location = args.get("location", "Seattle")
+    
+    # Your weather API integration here
+    weather_data = call_weather_api(location)
+    
+    return f"Weather in {location}: {weather_data}"
+```
 
-**OAuth Metadata Endpoint** (`GET /.well-known/oauth-authorization-server`)
-- **Purpose**: Publishes OAuth server configuration per RFC 8414
-- **Returns**: JSON metadata about supported endpoints, flows, and capabilities
-  
-**Client Registration** (`POST /register`)
-- **Purpose**: Supports dynamic client registration per MCP specification
+#### 2. Deploy and Test
 
-**Token Endpoint** (`POST /token`)
-- **Purpose**: Exchanges authorization codes for access tokens
-- **Policy Logic**:
-  1. Validates authorization code and PKCE verifier from MCP client
-  2. Exchanges Entra ID authorization code for access tokens
-  3. Generates encrypted session key for MCP API access
-  4. Caches the access token with session key mapping
-  5. Returns encrypted session key to MCP client
+```bash
+# Deploy your new tool
+azd deploy
 
-#### Named Values and Configuration
+# Test with agents
+python test_mcp_fixed_session.py
+```
 
-The OAuth API uses several APIM Named Values for configuration:
-- `McpClientId` - The registered Entra ID application client ID
-- `EntraIDFicClientId` - Service identity client ID for token exchange
-- `APIMGatewayURL` - Base URL for callback and metadata endpoints
-- `OAuthScopes` - Requested OAuth scopes (`openid` + Microsoft Graph)
-- `EncryptionKey` / `EncryptionIV` - For session key encryption
+Your AI agents will automatically discover and can use your new `get_weather` tool!
 
-### MCP API (`/mcp/*`)
+### Common Agent Tool Patterns
 
-This API provides the actual MCP protocol endpoints with security enforcement:
+| Tool Type | Example | Agent Use Case |
+|-----------|---------|----------------|
+| **Data Retrieval** | `get_customer_info`, `search_documents` | Agents access enterprise data |
+| **Actions** | `send_email`, `create_ticket` | Agents perform tasks |
+| **Calculations** | `calculate_roi`, `forecast_sales` | Agents do complex math |
+| **External APIs** | `get_weather`, `translate_text` | Agents use third-party services |
 
-#### Endpoints and Operations
+## Technical Implementation Details
 
-**Server-Sent Events Endpoint** (`GET /sse`)
-- **Purpose**: Establishes real-time communication channel for MCP protocol
-- **Security**: Requires valid encrypted session token
+### API Management Configuration for AI Agents
 
-**Message Endpoint** (`POST /message`)
-- **Purpose**: Handles MCP protocol messages and tool invocations
-- **Security**: Requires valid encrypted session token
+The APIM instance exposes two key APIs for AI agent interaction:
 
-#### Security Policy Implementation
+#### 🔐 Agent Authentication API (`/oauth/*`)
 
-The MCP API applies a comprehensive security policy to all operations:
+Handles secure agent authentication and authorization:
 
-1. **Authorization Header Validation**
-   ```xml
-   <check-header name="Authorization" failed-check-httpcode="401" 
-                 failed-check-error-message="Not authorized" ignore-case="false" />
-   ```
+**Key Endpoints for Agent Authentication:**
+- `GET /authorize` - Initiates agent authentication flow
+- `POST /token` - Exchanges authorization codes for agent access tokens  
+- `POST /register` - Dynamic client registration for new agents
+- `GET /.well-known/oauth-authorization-server` - Agent discovery of auth capabilities
 
-2. **Session Key Decryption**
-   - Extracts encrypted session key from Authorization header
-   - Decrypts using AES with stored key and IV
-   - Validates token format and structure
+#### 🤖 Agent Tool API (`/mcp/*`)
 
-3. **Token Cache Lookup**
-   ```xml
-   <cache-lookup-value key="@($"EntraToken-{context.Variables.GetValueOrDefault("decryptedSessionKey")}")" 
-                       variable-name="accessToken" />
-   ```
+The core MCP protocol endpoints that agents use to interact with your tools:
 
-4. **Access Token Validation**
-   - Verifies cached access token exists and is valid
-   - Returns 401 with proper WWW-Authenticate header if invalid
+**Agent Session Endpoint** (`GET /sse`)
+- Establishes persistent connection between agent and your MCP server
+- Enables real-time streaming responses for better agent experience
+- Handles multiple concurrent agent sessions
 
-5. **Backend Authentication**
-   ```xml
-   <set-header name="x-functions-key" exists-action="override">
-       <value>{{function-host-key}}</value>
-   </set-header>
-   ```
+**Agent Tool Interaction** (`POST /message`)  
+- `tools/list` - Agent discovers available tools and their capabilities
+- `tools/call` - Agent executes specific tools with parameters
+- Real-time responses streamed back to agent via SSE connection
 
-### Security Model
+### Enterprise Security for AI Agents
 
-The solution implements a sophisticated multi-layer security model:
+The solution includes comprehensive security without compromising agent experience:
 
-**Layer 1: OAuth 2.0/PKCE Authentication**
-- MCP clients must complete full OAuth flow with Entra ID
-- PKCE prevents authorization code interception attacks
-- User consent management with persistent preferences
+**🔐 Agent Authentication**
+- OAuth 2.0/PKCE flow ensures only authorized agents can access tools
+- Enterprise SSO integration via Entra ID
+- Support for multiple agent types and use cases
 
-**Layer 2: Session Key Encryption**
-- Access tokens are never exposed to MCP clients
-- Encrypted session keys provide time-bounded access
-- AES encryption with secure key management in APIM
+**🛡️ Tool Access Control**  
+- Fine-grained permissions for different agent capabilities
+- Rate limiting to prevent agent abuse
+- Audit logging of all agent tool interactions
 
-**Layer 3: Function-Level Security**
-- Function host keys protect direct access to Azure Functions
-- Managed identity ensures secure service-to-service communication
-- Network isolation available via VNet integration
+**🔒 Data Protection**
+- Encrypted communication between agents and tools
+- Secure storage of agent data and tool state
+- Network isolation options for sensitive workloads
 
-**Layer 4: Azure Platform Security**
-- All traffic encrypted in transit (TLS)
-- Storage access via managed identities
-- Audit logging through Application Insights
+**📊 Monitoring & Compliance**
+- Complete audit trail of agent activities
+- Performance monitoring and alerting
+- Usage analytics for governance and optimization
 
-This layered approach ensures that even if one security boundary is compromised, multiple additional protections remain in place.
+## Next Steps: Building Your AI Agent Ecosystem
 
-## Development and Testing
+### 🚀 Extend Your Agent Capabilities
 
-### Test Scripts
+1. **Add Custom Tools**: Create tools specific to your business domain
+2. **Enterprise Integration**: Connect agents to your databases, APIs, and systems  
+3. **Multi-Agent Support**: Scale to support multiple agents with different capabilities
+4. **Advanced Analytics**: Monitor agent usage and optimize tool performance
 
-The repository includes a streamlined testing approach:
+### 🧠 Agent Development Patterns
 
-- **`test_mcp_fixed_session.py`** - The primary working test that validates the complete MCP protocol flow
-- **`TESTING.md`** - Comprehensive testing documentation with expected outputs
-- **`test.http`** - HTTP client test file for API endpoint testing
+**Data Access Agents**: Give agents read access to enterprise data
+```python
+# Example: Customer lookup tool for sales agents
+@app.generic_trigger(toolName="get_customer", description="Look up customer information")
+def get_customer(context):
+    # Connect to CRM, database, etc.
+    return customer_data
+```
 
-Previous debugging and experimental test files have been removed to maintain a clean repository.
+**Action Agents**: Let agents perform tasks and workflows
+```python  
+# Example: Ticket creation tool for support agents
+@app.generic_trigger(toolName="create_ticket", description="Create support ticket")
+def create_ticket(context):
+    # Integrate with ticketing system
+    return ticket_id
+```
 
-### Testing Strategy
+**Analysis Agents**: Provide agents with computational capabilities
+```python
+# Example: Financial analysis tool for finance agents  
+@app.generic_trigger(toolName="calculate_roi", description="Calculate ROI for investments")
+def calculate_roi(context):
+    # Complex calculations, ML models, etc.
+    return analysis_results
+```
 
-The testing approach focuses on end-to-end validation:
+### 📚 Additional Resources
 
-1. **Protocol Compliance**: Validates MCP specification adherence
-2. **Security Verification**: Tests OAuth 2.0/PKCE authentication flow  
-3. **Integration Testing**: Validates Azure services integration
-4. **Tool Functionality**: Tests all available MCP tools
+- **[TESTING.md](TESTING.md)** - Complete testing and validation guide
+- **[MCP Specification](https://modelcontextprotocol.io/)** - Official Model Context Protocol documentation
+- **[Azure AI Gateway](https://github.com/Azure-Samples/AI-Gateway)** - Learn more about AI Gateway patterns
+- **[Sequence Diagrams](infra/app/apim-oauth/diagrams/diagrams.md)** - Detailed interaction flows
 
-This ensures the deployed infrastructure works correctly and securely in production scenarios.
+### 🤝 Contributing
 
-
-
+This is an experimental sample showing AI agent integration patterns. Contributions and feedback are welcome as we explore the future of AI agent development with Azure and MCP.
