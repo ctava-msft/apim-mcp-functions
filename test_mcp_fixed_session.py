@@ -1,4 +1,30 @@
 #!/usr/bin/env python3
+"""
+MCP Server Integration Test
+
+This script tests the complete MCP (Model Context Protocol) server implementation
+deployed on Azure API Management + Azure Functions.
+
+The test validates:
+1. SSE (Server-Sent Events) session establishment
+2. MCP tool discovery via tools/list
+3. MCP tool execution (hello_mcp, get_snippet, save_snippet)
+4. Proper async response handling via SSE streams
+
+Usage:
+    python test_mcp_fixed_session.py
+
+Requirements:
+    - aiohttp (pip install aiohttp)  
+    - Valid mcp_tokens.json file with OAuth tokens
+    - Network access to the deployed Azure APIM endpoint
+
+Expected Output:
+    ✅ SSE Session established
+    ✅ 3 MCP tools discovered
+    ✅ hello_mcp tool executed successfully
+    🎉 SUCCESS message
+"""
 
 import asyncio
 import json

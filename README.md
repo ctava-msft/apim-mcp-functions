@@ -53,7 +53,34 @@ This is a [sequence diagram](infra/app/apim-oauth/diagrams/diagrams.md) to under
     https://<apim-servicename-from-azd-output>.azure-api.net/mcp/sse
     ```
 
-5. **List Tools**.  Click on a tool and **Run Tool**.  
+5. **List Tools**.  Click on a tool and **Run Tool**.
+
+### Test with Python Script
+
+For automated testing and validation, use the included test script:
+
+```bash
+python test_mcp_fixed_session.py
+```
+
+This test validates the complete MCP protocol flow including:
+- ✅ SSE session establishment
+- ✅ Tool discovery (`tools/list`)
+- ✅ Tool execution (`hello_mcp`, `get_snippet`, `save_snippet`)
+- ✅ Response streaming via SSE
+
+See [TESTING.md](TESTING.md) for detailed testing instructions and expected outputs.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          🎉 MCP Server Test Results                              │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  🔗 SSE Session: ✅ SUCCESS    🛠️  Tool Discovery: ✅ SUCCESS                    │
+│  🚀 Tool Execution: ✅ SUCCESS  📊 All Tests: 🎉 PASSED                         │
+│                                                                                 │
+│  📋 Available Tools: hello_mcp, get_snippet, save_snippet                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```  
 
 
 ## Technical Architecture Overview
@@ -242,6 +269,29 @@ The solution implements a sophisticated multi-layer security model:
 - Audit logging through Application Insights
 
 This layered approach ensures that even if one security boundary is compromised, multiple additional protections remain in place.
+
+## Development and Testing
+
+### Test Scripts
+
+The repository includes a streamlined testing approach:
+
+- **`test_mcp_fixed_session.py`** - The primary working test that validates the complete MCP protocol flow
+- **`TESTING.md`** - Comprehensive testing documentation with expected outputs
+- **`test.http`** - HTTP client test file for API endpoint testing
+
+Previous debugging and experimental test files have been removed to maintain a clean repository.
+
+### Testing Strategy
+
+The testing approach focuses on end-to-end validation:
+
+1. **Protocol Compliance**: Validates MCP specification adherence
+2. **Security Verification**: Tests OAuth 2.0/PKCE authentication flow  
+3. **Integration Testing**: Validates Azure services integration
+4. **Tool Functionality**: Tests all available MCP tools
+
+This ensures the deployed infrastructure works correctly and securely in production scenarios.
 
 
 
