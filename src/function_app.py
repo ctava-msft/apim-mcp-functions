@@ -20,6 +20,8 @@ _LOAN_AMOUNT_PROPERTY = "loan_amount"
 _CREDIT_SCORE_PROPERTY = "credit_score"
 _INCOME_PROPERTY = "annual_income"
 _EMPLOYMENT_YEARS_PROPERTY = "employment_years"
+_DECISION_PROPERTY = "decision"
+_REASON_PROPERTY = "reason"
 
 
 @dataclass
@@ -68,6 +70,29 @@ tool_properties_get_special_vehicles = [
     ToolProperty(_VEHICLE_TYPE_PROPERTY, "string", "The type of vehicle to lookup.")
 ]
 
+tool_properties_evaluate_loan_risk = [
+    ToolProperty(_LOAN_APPLICATION_ID_PROPERTY, "string", "The loan application ID."),
+    ToolProperty(_CUSTOMER_ID_PROPERTY, "string", "The unique customer identifier."),
+    ToolProperty(_LOAN_AMOUNT_PROPERTY, "number", "The requested loan amount."),
+    ToolProperty(_CREDIT_SCORE_PROPERTY, "number", "The customer's credit score."),
+    ToolProperty(_VEHICLE_TYPE_PROPERTY, "string", "The type of vehicle being financed.")
+]
+
+tool_properties_generate_loan_decision = [
+    ToolProperty(_LOAN_APPLICATION_ID_PROPERTY, "string", "The loan application ID."),
+    ToolProperty(_CUSTOMER_ID_PROPERTY, "string", "The unique customer identifier."),
+    ToolProperty(_LOAN_AMOUNT_PROPERTY, "number", "The requested loan amount."),
+    ToolProperty(_CREDIT_SCORE_PROPERTY, "number", "The customer's credit score."),
+    ToolProperty(_VEHICLE_TYPE_PROPERTY, "string", "The type of vehicle being financed."),
+    ToolProperty(_INCOME_PROPERTY, "number", "The customer's annual income.")
+]
+
+tool_properties_save_loan_decision = [
+    ToolProperty(_LOAN_APPLICATION_ID_PROPERTY, "string", "The loan application ID."),
+    ToolProperty(_DECISION_PROPERTY, "string", "The loan decision (approved/rejected/pending)."),
+    ToolProperty(_REASON_PROPERTY, "string", "The reason for the decision.")
+]
+
 # Convert the tool properties to JSON
 tool_properties_save_snippets_json = json.dumps([prop.__dict__ for prop in tool_properties_save_snippets_object])
 tool_properties_get_snippets_json = json.dumps([prop.__dict__ for prop in tool_properties_get_snippets_object])
@@ -80,6 +105,11 @@ tool_properties_validate_loan_application_json = json.dumps(
 )
 tool_properties_calculate_loan_terms_json = json.dumps([prop.__dict__ for prop in tool_properties_calculate_loan_terms])
 tool_properties_get_special_vehicles_json = json.dumps([prop.__dict__ for prop in tool_properties_get_special_vehicles])
+tool_properties_evaluate_loan_risk_json = json.dumps([prop.__dict__ for prop in tool_properties_evaluate_loan_risk])
+tool_properties_generate_loan_decision_json = json.dumps(
+    [prop.__dict__ for prop in tool_properties_generate_loan_decision]
+)
+tool_properties_save_loan_decision_json = json.dumps([prop.__dict__ for prop in tool_properties_save_loan_decision])
 
 
 @app.generic_trigger(
@@ -721,3 +751,405 @@ def calculate_loan_terms(context) -> str:
     except Exception as e:
         logging.error(f"Error calculating loan terms: {e}")
         return json.dumps({"error": "Failed to calculate loan terms"})
+
+
+@app.generic_trigger(
+    arg_name="context",
+    type="mcpToolTrigger",
+    toolName="evaluate_loan_risk",
+    description="Perform comprehensive risk evaluation combining all loan factors.",
+    toolProperties=tool_properties_evaluate_loan_risk_json,
+)
+def evaluate_loan_risk(context) -> str:
+    """
+    Performs comprehensive risk evaluation combining all available factors.
+    
+    Args:
+        context: The trigger context containing loan application data.
+        
+    Returns:
+        str: Comprehensive risk evaluation as JSON string.
+    """
+    try:
+        content = json.loads(context)
+        if "arguments" not in content:
+            return json.dumps({"error": "No arguments provided"})
+            
+        args = content["arguments"]
+        application_id = args.get(_LOAN_APPLICATION_ID_PROPERTY)
+        customer_id = args.get(_CUSTOMER_ID_PROPERTY)
+        loan_amount = args.get(_LOAN_AMOUNT_PROPERTY)
+        credit_score = args.get(_CREDIT_SCORE_PROPERTY)
+        vehicle_type = args.get(_VEHICLE_TYPE_PROPERTY, "standard")
+        
+        if not all([application_id, customer_id, loan_amount, credit_score]):
+            return json.dumps({"error": "application_id, customer_id, loan_amount, and credit_score are required"})
+            
+        logging.info(f"Performing comprehensive risk evaluation for application {application_id}")
+        
+        # Multi-factor risk scoring
+        risk_factors = {
+            "credit_score_factor": 0,
+            "loan_amount_factor": 0,
+            "vehicle_type_factor": 0,
+            "overall_risk_score": 0
+        }
+        
+        # Credit score risk (40% weight)
+        if credit_score >= 750:
+            risk_factors["credit_score_factor"] = 40
+        elif credit_score >= 700:
+            risk_factors["credit_score_factor"] = 30
+        elif credit_score >= 650:
+            risk_factors["credit_score_factor"] = 20
+        else:
+            risk_factors["credit_score_factor"] = 10
+            
+        # Loan amount risk (35% weight)
+        if loan_amount <= 25000:
+            risk_factors["loan_amount_factor"] = 35
+        elif loan_amount <= 50000:
+            risk_factors["loan_amount_factor"] = 25
+        elif loan_amount <= 75000:
+            risk_factors["loan_amount_factor"] = 15
+        else:
+            risk_factors["loan_amount_factor"] = 5
+            
+        # Vehicle type risk (25% weight)
+        vehicle_risk_weights = {
+            "new_car": 25,
+            "used_car": 20,
+            "electric_vehicle": 23,
+            "luxury_vehicle": 15,
+            "commercial_vehicle": 10,
+            "classic_vehicle": 8
+        }
+        risk_factors["vehicle_type_factor"] = vehicle_risk_weights.get(vehicle_type.lower(), 18)
+        
+        # Calculate overall risk score
+        risk_factors["overall_risk_score"] = (
+            risk_factors["credit_score_factor"] +
+            risk_factors["loan_amount_factor"] +
+            risk_factors["vehicle_type_factor"]
+        )
+        
+        # Determine risk level and recommendation
+        overall_score = risk_factors["overall_risk_score"]
+        if overall_score >= 80:
+            risk_level = "low"
+            recommendation = "approve"
+            confidence = 0.95
+        elif overall_score >= 60:
+            risk_level = "medium"
+            recommendation = "approve_with_conditions"
+            confidence = 0.80
+        elif overall_score >= 40:
+            risk_level = "medium_high"
+            recommendation = "manual_review"
+            confidence = 0.60
+        else:
+            risk_level = "high"
+            recommendation = "reject"
+            confidence = 0.85
+            
+        risk_evaluation = {
+            "application_id": application_id,
+            "customer_id": customer_id,
+            "evaluation_summary": {
+                "overall_risk_level": risk_level,
+                "risk_score": overall_score,
+                "max_possible_score": 100,
+                "recommendation": recommendation,
+                "confidence_level": confidence
+            },
+            "risk_factor_breakdown": risk_factors,
+            "detailed_analysis": {
+                "strengths": [],
+                "concerns": [],
+                "mitigating_factors": [],
+                "recommendations": []
+            },
+            "evaluation_date": "2024-09-26",
+            "evaluator": "AI_Risk_Engine_v1.0"
+        }
+        
+        # Add detailed analysis based on factors
+        if credit_score >= 750:
+            risk_evaluation["detailed_analysis"]["strengths"].append(
+                "Excellent credit score indicates low default risk"
+            )
+        elif credit_score < 650:
+            risk_evaluation["detailed_analysis"]["concerns"].append(
+                "Below-average credit score increases default risk"
+            )
+            
+        if loan_amount > 75000:
+            risk_evaluation["detailed_analysis"]["concerns"].append("High loan amount increases exposure")
+            risk_evaluation["detailed_analysis"]["recommendations"].append("Consider requiring larger down payment")
+            
+        if vehicle_type.lower() == "electric_vehicle":
+            risk_evaluation["detailed_analysis"]["mitigating_factors"].append(
+                "Electric vehicle qualifies for green financing incentives"
+            )
+            
+        return json.dumps(risk_evaluation, indent=2)
+        
+    except Exception as e:
+        logging.error(f"Error evaluating loan risk: {e}")
+        return json.dumps({"error": "Failed to evaluate loan risk"})
+
+
+@app.generic_trigger(
+    arg_name="context",
+    type="mcpToolTrigger",
+    toolName="generate_loan_decision",
+    description="Generate final loan approval/rejection decision with reasoning.",
+    toolProperties=tool_properties_generate_loan_decision_json,
+)
+def generate_loan_decision(context) -> str:
+    """
+    Generates final loan decision based on comprehensive analysis.
+    
+    Args:
+        context: The trigger context containing loan application data.
+        
+    Returns:
+        str: Loan decision with detailed reasoning as JSON string.
+    """
+    try:
+        content = json.loads(context)
+        if "arguments" not in content:
+            return json.dumps({"error": "No arguments provided"})
+            
+        args = content["arguments"]
+        application_id = args.get(_LOAN_APPLICATION_ID_PROPERTY)
+        customer_id = args.get(_CUSTOMER_ID_PROPERTY)
+        loan_amount = args.get(_LOAN_AMOUNT_PROPERTY)
+        credit_score = args.get(_CREDIT_SCORE_PROPERTY)
+        vehicle_type = args.get(_VEHICLE_TYPE_PROPERTY, "standard")
+        annual_income = args.get(_INCOME_PROPERTY, 0)
+        
+        required_fields = [application_id, customer_id, loan_amount, credit_score]
+        if not all(required_fields):
+            return json.dumps({"error": "Missing required fields for loan decision"})
+            
+        logging.info(f"Generating loan decision for application {application_id}")
+        
+        # Decision logic based on multiple criteria
+        approval_score = 0
+        decision_factors = []
+        
+        # Credit score criteria (most important)
+        if credit_score >= 750:
+            approval_score += 40
+            decision_factors.append("Excellent credit score (750+)")
+        elif credit_score >= 700:
+            approval_score += 30
+            decision_factors.append("Good credit score (700-749)")
+        elif credit_score >= 650:
+            approval_score += 20
+            decision_factors.append("Fair credit score (650-699)")
+        elif credit_score >= 600:
+            approval_score += 10
+            decision_factors.append("Marginal credit score (600-649)")
+        else:
+            decision_factors.append("Poor credit score (below 600)")
+            
+        # Loan amount vs income ratio
+        if annual_income > 0:
+            loan_to_income_ratio = loan_amount / annual_income
+            if loan_to_income_ratio <= 3:
+                approval_score += 25
+                decision_factors.append(f"Favorable loan-to-income ratio ({loan_to_income_ratio:.1f}:1)")
+            elif loan_to_income_ratio <= 4:
+                approval_score += 15
+                decision_factors.append(f"Acceptable loan-to-income ratio ({loan_to_income_ratio:.1f}:1)")
+            else:
+                decision_factors.append(f"High loan-to-income ratio ({loan_to_income_ratio:.1f}:1)")
+        else:
+            decision_factors.append("Income information not provided")
+            
+        # Loan amount thresholds
+        if loan_amount <= 30000:
+            approval_score += 20
+            decision_factors.append("Moderate loan amount")
+        elif loan_amount <= 60000:
+            approval_score += 15
+            decision_factors.append("Standard loan amount")
+        elif loan_amount <= 100000:
+            approval_score += 5
+            decision_factors.append("High loan amount")
+        else:
+            decision_factors.append("Loan amount exceeds policy limits")
+            
+        # Vehicle type considerations
+        vehicle_bonuses = {
+            "new_car": 10,
+            "electric_vehicle": 12,
+            "used_car": 8,
+            "luxury_vehicle": 5,
+            "commercial_vehicle": 3,
+            "classic_vehicle": 2
+        }
+        vehicle_bonus = vehicle_bonuses.get(vehicle_type.lower(), 5)
+        approval_score += vehicle_bonus
+        decision_factors.append(f"Vehicle type: {vehicle_type}")
+        
+        # Make final decision
+        if approval_score >= 80:
+            decision = "approved"
+            decision_reason = "Application meets all approval criteria with strong financial profile"
+        elif approval_score >= 60:
+            decision = "approved_with_conditions"
+            decision_reason = "Application approved with additional conditions or monitoring"
+        elif approval_score >= 40:
+            decision = "pending_review"
+            decision_reason = "Application requires human underwriter review"
+        else:
+            decision = "rejected"
+            decision_reason = "Application does not meet minimum approval criteria"
+            
+        # Calculate terms for approved applications
+        loan_terms = None
+        if decision in ["approved", "approved_with_conditions"]:
+            # Use simplified interest rate calculation
+            if credit_score >= 750:
+                interest_rate = 0.035
+            elif credit_score >= 700:
+                interest_rate = 0.045
+            elif credit_score >= 650:
+                interest_rate = 0.065
+            else:
+                interest_rate = 0.085
+                
+            # Adjust for vehicle type
+            rate_adjustments = {
+                "electric_vehicle": -0.0025,
+                "luxury_vehicle": 0.005,
+                "commercial_vehicle": 0.010,
+                "classic_vehicle": 0.015
+            }
+            final_rate = interest_rate + rate_adjustments.get(vehicle_type.lower(), 0.0)
+            
+            loan_term = 60  # Default 5 years
+            monthly_rate = final_rate / 12
+            monthly_payment = (
+                loan_amount * (monthly_rate * (1 + monthly_rate) ** loan_term) / 
+                ((1 + monthly_rate) ** loan_term - 1)
+            )
+            
+            loan_terms = {
+                "interest_rate_percent": round(final_rate * 100, 3),
+                "loan_term_months": loan_term,
+                "monthly_payment": round(monthly_payment, 2),
+                "total_payment": round(monthly_payment * loan_term, 2)
+            }
+            
+        decision_response = {
+            "application_id": application_id,
+            "customer_id": customer_id,
+            "decision": decision,
+            "decision_reason": decision_reason,
+            "approval_score": approval_score,
+            "max_score": 100,
+            "decision_factors": decision_factors,
+            "loan_terms": loan_terms,
+            "conditions": [],
+            "next_steps": [],
+            "decision_date": "2024-09-26",
+            "decision_engine": "AI_Underwriter_v1.0"
+        }
+        
+        # Add conditions and next steps based on decision
+        if decision == "approved_with_conditions":
+            decision_response["conditions"] = [
+                "Income verification required",
+                "Vehicle appraisal required",
+                "Insurance coverage confirmation needed"
+            ]
+            decision_response["next_steps"] = [
+                "Submit required documentation",
+                "Schedule vehicle inspection",
+                "Finalize insurance coverage"
+            ]
+        elif decision == "pending_review":
+            decision_response["next_steps"] = [
+                "Application forwarded to human underwriter",
+                "Additional documentation may be requested",
+                "Decision expected within 2-3 business days"
+            ]
+        elif decision == "rejected":
+            decision_response["next_steps"] = [
+                "Consider reapplying after improving credit score",
+                "Explore co-signer options",
+                "Consider smaller loan amount"
+            ]
+            
+        logging.info(f"Generated {decision} decision for application {application_id}")
+        return json.dumps(decision_response, indent=2)
+        
+    except Exception as e:
+        logging.error(f"Error generating loan decision: {e}")
+        return json.dumps({"error": "Failed to generate loan decision"})
+
+
+@app.generic_trigger(
+    arg_name="context",
+    type="mcpToolTrigger",
+    toolName="save_loan_decision",
+    description="Save loan decision and audit trail to storage.",
+    toolProperties=tool_properties_save_loan_decision_json,
+)
+def save_loan_decision(context) -> str:
+    """
+    Saves loan decision and creates audit trail.
+    In a real implementation, this would save to a database.
+    
+    Args:
+        context: The trigger context containing decision data.
+        
+    Returns:
+        str: Save confirmation as JSON string.
+    """
+    try:
+        content = json.loads(context)
+        if "arguments" not in content:
+            return json.dumps({"error": "No arguments provided"})
+            
+        args = content["arguments"]
+        application_id = args.get(_LOAN_APPLICATION_ID_PROPERTY)
+        decision = args.get(_DECISION_PROPERTY)
+        reason = args.get(_REASON_PROPERTY)
+        
+        if not all([application_id, decision, reason]):
+            return json.dumps({"error": "application_id, decision, and reason are required"})
+            
+        logging.info(f"Saving loan decision for application {application_id}: {decision}")
+        
+        # In a real implementation, this would save to database
+        # For now, simulate the save operation
+        save_result = {
+            "application_id": application_id,
+            "decision": decision,
+            "reason": reason,
+            "saved_at": "2024-09-26T12:00:00Z",
+            "audit_trail": {
+                "action": "loan_decision_saved",
+                "user": "AI_System",
+                "timestamp": "2024-09-26T12:00:00Z",
+                "metadata": {
+                    "decision_engine": "AI_Underwriter_v1.0",
+                    "processing_time_ms": 1250,
+                    "confidence_score": 0.92
+                }
+            },
+            "status": "success",
+            "record_id": f"LOAN_DEC_{application_id}_{hash(application_id) % 10000:04d}"
+        }
+        
+        logging.info(f"Loan decision saved successfully for application {application_id}")
+        return json.dumps(save_result, indent=2)
+        
+    except Exception as e:
+        logging.error(f"Error saving loan decision: {e}")
+        return json.dumps({"error": "Failed to save loan decision"})
