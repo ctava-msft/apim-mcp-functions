@@ -3,6 +3,8 @@
 # Manually managing azure-functions-worker may cause unexpected issues
 
 azure-functions
-azure-cosmos
-azure-openai
-python-dateutil
+
+# Optional dependencies for enhanced Security Admin Agent features:
+# azure-cosmos>=4.0.0          # For persistent security event storage
+# openai>=1.0.0                # For Azure OpenAI integration  
+# python-dateutil>=2.8.0       # For enhanced date/time handling
