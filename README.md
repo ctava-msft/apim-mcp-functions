@@ -31,15 +31,58 @@ This solution enables you to:
 🌐 **Scale Agent Infrastructure**: Deploy MCP servers that handle multiple concurrent agent sessions  
 🛡️ **Secure Agent Access**: Implement proper authentication and authorization for agent interactions  
 
-### Available MCP Tools
+### Available MCP Tools & AI Agents
 
-The sample includes three ready-to-use agent tools:
+The sample includes three ready-to-use agent tools and a dedicated Microsoft Sentinel AI Agent:
+
+#### MCP Tools for General AI Agents
 
 | Tool | Purpose | AI Agent Use Case |
 |------|---------|-------------------|
 | `hello_mcp` | Simple greeting tool | Test agent connectivity and basic tool calling |
 | `save_snippet` | Store code/text snippets | Let agents save information for later retrieval |
 | `get_snippet` | Retrieve stored snippets | Enable agents to access previously saved data |
+
+#### Microsoft Sentinel AI Agent
+
+The solution includes a specialized **Sentinel AI Agent** designed for security operations:
+
+| Component | Purpose | Use Case |
+|-----------|---------|----------|
+| `sentinel_webhook` | Process Sentinel incidents | Receive incident data from Sentinel Playbooks via webhook |
+| AI Analysis Engine | Generate security insights | Analyze incidents and provide actionable recommendations |
+| Threat Intelligence | Enrich incident context | Add threat categorization and confidence scoring |
+
+**Sample Sentinel Incident Processing:**
+```json
+// Input from Sentinel Playbook
+{
+  "incidentId": "12345",
+  "severity": "High", 
+  "entities": [
+    {"type": "Account", "name": "user@domain.com"},
+    {"type": "Host", "name": "host01"}
+  ],
+  "alertContext": {
+    "description": "Suspicious login detected",
+    "timestamp": "2025-09-26T18:44:12Z"
+  }
+}
+
+// AI-Generated Response
+{
+  "recommendations": [
+    "Disable account user@domain.com immediately",
+    "Isolate host host01 from network",
+    "Implement additional MFA requirements"
+  ],
+  "confidenceScore": 0.92,
+  "enrichment": {
+    "threat_category": "Authentication Attack",
+    "threat_intel": "Incident requires immediate attention due to high severity"
+  }
+}
+```
 
 This architecture follows the latest [MCP Authorization specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization#2-10-third-party-authorization-flow) and provides a [detailed sequence diagram](infra/app/apim-oauth/diagrams/diagrams.md) of the agent interaction flow.
 
@@ -67,6 +110,34 @@ Get your AI agent infrastructure running in minutes:
     - 💾 Storage Account (Agent Data Persistence)
     - 🔐 Authentication & Authorization
     - 📊 Monitoring & Logging
+    - 🛡️ Microsoft Sentinel AI Agent Webhook
+
+### 🛡️ Microsoft Sentinel Integration
+
+After deployment, you'll get a **Sentinel Webhook URL** for integrating with Microsoft Sentinel Playbooks:
+
+```bash
+# Get the Sentinel webhook URL from deployment outputs
+azd env get-values | grep SENTINEL_WEBHOOK_URL
+# Output: SENTINEL_WEBHOOK_URL=https://your-apim.azure-api.net/sentinel/ai-agent/webhook
+```
+
+**Integrating with Sentinel Playbooks:**
+
+1. **Copy the webhook URL** from the deployment output
+2. **Add to your Sentinel Playbook** as an HTTP action:
+   - Method: `POST`
+   - URI: Your `SENTINEL_WEBHOOK_URL`
+   - Headers: `Content-Type: application/json`
+   - Body: Sentinel incident data (see sample above)
+
+3. **Test the integration**:
+   ```bash
+   # Test with sample incident data
+   python test_sentinel_agent.py YOUR_SENTINEL_WEBHOOK_URL
+   ```
+
+The AI agent will analyze incidents and return actionable security recommendations that your playbooks can use for automated response.
 
 ## Connect Your AI Agent
 

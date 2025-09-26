@@ -96,6 +96,23 @@ module mcpApiModule './app/apim-mcp/mcp-api.bicep' = {
   ]
 }
 
+// Sentinel AI Agent API endpoints
+module sentinelApiModule './app/apim-sentinel/sentinel-api.bicep' = {
+  name: 'sentinelApiModule'
+  scope: rg
+  params: {
+    apimServiceName: apimService.name
+    functionAppName: functionAppName
+  }
+  dependsOn: vnetEnabled ? [
+    apiWithVnet
+    oauthAPIModule
+  ] : [
+    api
+    oauthAPIModule
+  ]
+}
+
 
 // User assigned managed identity to be used by the function app to reach storage and service bus
 module apiUserAssignedIdentity './core/identity/userAssignedIdentity.bicep' = {
@@ -271,3 +288,4 @@ output AZURE_TENANT_ID string = tenant().tenantId
 output SERVICE_API_NAME string = functionAppName
 output AZURE_FUNCTION_NAME string = functionAppName
 output SERVICE_API_ENDPOINTS array = [ '${apimService.outputs.gatewayUrl}/mcp/sse' ]
+output SENTINEL_WEBHOOK_URL string = sentinelApiModule.outputs.webhookUrl

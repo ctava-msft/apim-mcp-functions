@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import json
 import logging
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 import azure.functions as func
 
@@ -101,3 +103,246 @@ def save_snippet(file: func.Out[str], context) -> str:
     file.set(snippet_content_from_args)
     logging.info("Saved snippet: %s", snippet_content_from_args)
     return f"Snippet '{snippet_content_from_args}' saved successfully"
+
+
+# Sentinel Agent functionality
+@dataclass
+class SentinelEntity:
+    type: str
+    name: str
+
+@dataclass
+class SentinelAlertContext:
+    description: str
+    timestamp: str
+
+@dataclass
+class SentinelIncident:
+    incidentId: str
+    severity: str
+    entities: List[SentinelEntity]
+    alertContext: SentinelAlertContext
+
+@dataclass
+class SentinelRecommendation:
+    recommendations: List[str]
+    confidenceScore: float
+    enrichment: Dict[str, Any]
+
+
+def validate_sentinel_payload(payload: Dict[str, Any]) -> Optional[SentinelIncident]:
+    """
+    Validates the incoming Sentinel payload structure.
+    
+    Args:
+        payload: The JSON payload from Sentinel Playbook
+        
+    Returns:
+        SentinelIncident object if valid, None if invalid
+    """
+    try:
+        # Validate required fields
+        required_fields = ['incidentId', 'severity', 'entities', 'alertContext']
+        for field in required_fields:
+            if field not in payload:
+                logging.error(f"Missing required field: {field}")
+                return None
+        
+        # Validate entities structure
+        entities = []
+        for entity in payload.get('entities', []):
+            if 'type' not in entity or 'name' not in entity:
+                logging.error("Invalid entity structure - missing type or name")
+                return None
+            entities.append(SentinelEntity(type=entity['type'], name=entity['name']))
+        
+        # Validate alert context
+        alert_context = payload.get('alertContext', {})
+        if 'description' not in alert_context or 'timestamp' not in alert_context:
+            logging.error("Invalid alertContext structure")
+            return None
+        
+        return SentinelIncident(
+            incidentId=payload['incidentId'],
+            severity=payload['severity'],
+            entities=entities,
+            alertContext=SentinelAlertContext(
+                description=alert_context['description'],
+                timestamp=alert_context['timestamp']
+            )
+        )
+    except Exception as e:
+        logging.error(f"Error validating payload: {str(e)}")
+        return None
+
+
+def generate_ai_insights(incident: SentinelIncident) -> SentinelRecommendation:
+    """
+    Generates AI-driven insights and recommendations for a Sentinel incident.
+    
+    Args:
+        incident: The validated Sentinel incident data
+        
+    Returns:
+        SentinelRecommendation with insights and recommendations
+    """
+    recommendations = []
+    enrichment = {}
+    confidence_score = 0.0
+    
+    # Analyze severity and generate recommendations
+    severity_lower = incident.severity.lower()
+    
+    if severity_lower in ['high', 'critical']:
+        confidence_score = 0.9
+        
+        # Check for account entities
+        accounts = [e for e in incident.entities if e.type.lower() == 'account']
+        hosts = [e for e in incident.entities if e.type.lower() == 'host']
+        
+        if accounts:
+            for account in accounts:
+                recommendations.append(f"Disable account {account.name} immediately")
+                recommendations.append(f"Reset password for account {account.name}")
+                recommendations.append(f"Review recent login activity for {account.name}")
+        
+        if hosts:
+            for host in hosts:
+                recommendations.append(f"Isolate host {host.name} from network")
+                recommendations.append(f"Run full antivirus scan on {host.name}")
+                recommendations.append(f"Investigate {host.name} for lateral movement indicators")
+        
+        # Analyze alert context for suspicious patterns
+        description_lower = incident.alertContext.description.lower()
+        
+        if 'login' in description_lower or 'logon' in description_lower:
+            enrichment['threat_category'] = 'Authentication Attack'
+            recommendations.append("Implement additional MFA requirements")
+            
+        if 'malicious' in description_lower or 'malware' in description_lower:
+            enrichment['threat_category'] = 'Malware Activity'
+            recommendations.append("Update endpoint protection signatures")
+            
+        if 'lateral' in description_lower or 'movement' in description_lower:
+            enrichment['threat_category'] = 'Lateral Movement'
+            recommendations.append("Review network segmentation policies")
+            
+        enrichment['threat_intel'] = "Incident requires immediate attention due to high severity"
+        
+    elif severity_lower == 'medium':
+        confidence_score = 0.7
+        recommendations.append("Monitor entities for 24 hours")
+        recommendations.append("Review incident context for false positive indicators")
+        enrichment['threat_intel'] = "Medium severity incident - monitor closely"
+        
+    else:  # Low severity
+        confidence_score = 0.5
+        recommendations.append("Log incident for trend analysis")
+        recommendations.append("Schedule review within 48 hours")
+        enrichment['threat_intel'] = "Low severity incident - routine monitoring"
+    
+    # Add timestamp-based recommendations
+    try:
+        incident_time = datetime.fromisoformat(incident.alertContext.timestamp.replace('Z', '+00:00'))
+        current_time = datetime.now(incident_time.tzinfo)
+        time_diff = current_time - incident_time
+        
+        if time_diff.total_seconds() > 3600:  # More than 1 hour old
+            recommendations.append("Incident is over 1 hour old - verify current threat status")
+            enrichment['time_analysis'] = "Delayed incident processing detected"
+    except Exception as e:
+        logging.warning(f"Could not parse timestamp: {str(e)}")
+    
+    return SentinelRecommendation(
+        recommendations=recommendations,
+        confidenceScore=confidence_score,
+        enrichment=enrichment
+    )
+
+
+@app.function_name("sentinel_webhook")
+@app.route(route="ai-agent/webhook", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+def sentinel_webhook(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    Sentinel AI Agent webhook endpoint.
+    
+    Processes Sentinel Playbook incidents and returns AI-generated insights and recommendations.
+    
+    Args:
+        req: HTTP request from Sentinel Playbook containing incident data
+        
+    Returns:
+        JSON response with recommendations, confidence score, and enrichment data
+    """
+    try:
+        # Log the incoming request
+        logging.info(f"Sentinel webhook triggered with method: {req.method}")
+        
+        # Validate request method
+        if req.method != 'POST':
+            return func.HttpResponse(
+                json.dumps({"error": "Only POST method is supported"}),
+                status_code=405,
+                mimetype="application/json"
+            )
+        
+        # Parse request body
+        try:
+            payload = req.get_json()
+            if not payload:
+                return func.HttpResponse(
+                    json.dumps({"error": "Request body must contain valid JSON"}),
+                    status_code=400,
+                    mimetype="application/json"
+                )
+        except Exception as e:
+            logging.error(f"Failed to parse JSON payload: {str(e)}")
+            return func.HttpResponse(
+                json.dumps({"error": f"Invalid JSON format: {str(e)}"}),
+                status_code=400,
+                mimetype="application/json"
+            )
+        
+        # Validate payload structure
+        incident = validate_sentinel_payload(payload)
+        if not incident:
+            return func.HttpResponse(
+                json.dumps({"error": "Invalid payload structure. Required fields: incidentId, severity, entities, alertContext"}),
+                status_code=400,
+                mimetype="application/json"
+            )
+        
+        # Log the validated incident
+        logging.info(f"Processing Sentinel incident {incident.incidentId} with severity {incident.severity}")
+        
+        # Generate AI insights
+        recommendations = generate_ai_insights(incident)
+        
+        # Prepare response
+        response_data = {
+            "recommendations": recommendations.recommendations,
+            "confidenceScore": recommendations.confidenceScore,
+            "enrichment": recommendations.enrichment,
+            "processedAt": datetime.utcnow().isoformat() + "Z",
+            "incidentId": incident.incidentId
+        }
+        
+        # Log successful processing
+        logging.info(f"Successfully processed incident {incident.incidentId} with {len(recommendations.recommendations)} recommendations")
+        
+        return func.HttpResponse(
+            json.dumps(response_data),
+            status_code=200,
+            mimetype="application/json"
+        )
+        
+    except Exception as e:
+        logging.error(f"Unexpected error in sentinel_webhook: {str(e)}")
+        return func.HttpResponse(
+            json.dumps({
+                "error": "Internal server error occurred while processing the request",
+                "details": str(e)
+            }),
+            status_code=500,
+            mimetype="application/json"
+        )
