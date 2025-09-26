@@ -1,8 +1,8 @@
-from dataclasses import dataclass
 import json
 import logging
-from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import azure.functions as func
 
@@ -120,17 +120,17 @@ class SentinelAlertContext:
 class SentinelIncident:
     incidentId: str
     severity: str
-    entities: List[SentinelEntity]
+    entities: list[SentinelEntity]
     alertContext: SentinelAlertContext
 
 @dataclass
 class SentinelRecommendation:
-    recommendations: List[str]
+    recommendations: list[str]
     confidenceScore: float
-    enrichment: Dict[str, Any]
+    enrichment: dict[str, Any]
 
 
-def validate_sentinel_payload(payload: Dict[str, Any]) -> Optional[SentinelIncident]:
+def validate_sentinel_payload(payload: dict[str, Any]) -> SentinelIncident | None:
     """
     Validates the incoming Sentinel payload structure.
     
@@ -307,7 +307,9 @@ def sentinel_webhook(req: func.HttpRequest) -> func.HttpResponse:
         incident = validate_sentinel_payload(payload)
         if not incident:
             return func.HttpResponse(
-                json.dumps({"error": "Invalid payload structure. Required fields: incidentId, severity, entities, alertContext"}),
+                json.dumps({
+                    "error": "Invalid payload structure. Required fields: incidentId, severity, entities, alertContext"
+                }),
                 status_code=400,
                 mimetype="application/json"
             )
@@ -328,7 +330,10 @@ def sentinel_webhook(req: func.HttpRequest) -> func.HttpResponse:
         }
         
         # Log successful processing
-        logging.info(f"Successfully processed incident {incident.incidentId} with {len(recommendations.recommendations)} recommendations")
+        logging.info(
+            f"Successfully processed incident {incident.incidentId} with "
+            f"{len(recommendations.recommendations)} recommendations"
+        )
         
         return func.HttpResponse(
             json.dumps(response_data),
