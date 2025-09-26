@@ -1,0 +1,9 @@
+{
+  "client_id": "74f00413-f3a6-4354-a064-5d971d5c5138",
+  "client_secret": null,
+  "access_token": "mcp_access_token_74f00413-f3a6-4354-a064-5d971d5c5138_mock_auth_code_123_1758909366",
+  "encrypted_session_key": null,
+  "code_verifier": "tsT9F-n4WH1GNDewCy8-tl-Omvg8ghgyNr5ByBHj568",
+  "code_challenge": "dlrFfDccv6V6LfjOKoLNq0cq2hHL_RQ2plrZGTamR78",
+  "state": "3MUJfKDnP2SiaNrDh3ZJVlKe0M00aQ7jVFuHZ-z3nD4"
+}

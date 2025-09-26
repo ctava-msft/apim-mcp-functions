@@ -1,0 +1,216 @@
+# Test file for MCP API endpoints
+# Endpoint: https://apim-hvsvkzkl6s2ra.azure-api.net/mcp/sse
+#
+# This MCP server implements OAuth2 authentication through Azure API Management
+# The server supports:
+# 1. SSE (Server-Sent Events) endpoint for MCP client connections
+# 2. Message endpoint for MCP tool invocations
+# 3. Available tools: hello_mcp, get_snippet, save_snippet
+
+@baseUrl = https://apim-hvsvkzkl6s2ra.azure-api.net
+@mcpPath = /mcp
+
+#######################################
+# PART 1: OAuth2 Authentication Flow
+#######################################
+
+### Step 1: Register OAuth2 client (MCP client registration)
+POST {{baseUrl}}/register
+Content-Type: application/json
+
+{
+    "client_name": "MCP Test Client",
+    "client_uri": "http://localhost:3000",
+    "redirect_uris": ["{{baseUrl}}/oauth-callback"],
+    "grant_types": ["authorization_code"],
+    "response_types": ["code"],
+    "token_endpoint_auth_method": "none",
+    "application_type": "native"
+}
+
+### Step 2: Get OAuth2 metadata
+GET {{baseUrl}}/.well-known/oauth_authorization_server
+
+### Step 3: Start OAuth2 authorization flow
+# Note: This should be opened in a browser, not executed directly
+# GET {{baseUrl}}/authorize?response_type=code&client_id=YOUR_CLIENT_ID&redirect_uri={{baseUrl}}/oauth-callback&scope=openid%20https://graph.microsoft.com/.default&state=random_state&code_challenge=YOUR_PKCE_CHALLENGE&code_challenge_method=S256
+
+### Step 4: Exchange authorization code for tokens (after redirect)
+# POST {{baseUrl}}/token
+# Content-Type: application/x-www-form-urlencoded
+# 
+# grant_type=authorization_code&code=YOUR_AUTH_CODE&redirect_uri={{baseUrl}}/oauth-callback&client_id=YOUR_CLIENT_ID&code_verifier=YOUR_PKCE_VERIFIER
+
+#######################################
+# PART 2: MCP API Testing
+#######################################
+
+### Quick Test: Verify API Management is responding (will return 401 - this is expected)
+GET {{baseUrl}}{{mcpPath}}/sse
+Accept: text/event-stream
+Cache-Control: no-cache
+
+### 1. Health Check - Test API Management gateway availability
+GET {{baseUrl}}{{mcpPath}}/sse
+Accept: text/event-stream
+Cache-Control: no-cache
+
+### 2. SSE Connection Test (without authentication - should return 401)
+GET {{baseUrl}}{{mcpPath}}/sse
+Accept: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+
+### 3. SSE Connection with Bearer token (you'll need to obtain this through OAuth2 flow)
+# Note: Replace YOUR_ENCRYPTED_SESSION_KEY with actual encrypted session key from OAuth flow
+GET {{baseUrl}}{{mcpPath}}/sse
+Accept: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Authorization: Bearer YOUR_ENCRYPTED_SESSION_KEY
+
+### 4. MCP Message Endpoint - Test tool invocation (without auth - should return 401)
+POST {{baseUrl}}{{mcpPath}}/message
+Content-Type: application/json
+
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+}
+
+### 5. MCP Message - List available tools (with authentication)
+# Note: Replace YOUR_ENCRYPTED_SESSION_KEY with actual encrypted session key from OAuth flow
+POST {{baseUrl}}{{mcpPath}}/message
+Content-Type: application/json
+Authorization: Bearer YOUR_ENCRYPTED_SESSION_KEY
+
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+}
+
+### 6. MCP Message - Call hello_mcp tool (with authentication)
+POST {{baseUrl}}{{mcpPath}}/message
+Content-Type: application/json
+Authorization: Bearer YOUR_ENCRYPTED_SESSION_KEY
+
+{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+        "name": "hello_mcp",
+        "arguments": {}
+    }
+}
+
+### 7. MCP Message - Save a snippet (with authentication)
+POST {{baseUrl}}{{mcpPath}}/message
+Content-Type: application/json
+Authorization: Bearer YOUR_ENCRYPTED_SESSION_KEY
+
+{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+        "name": "save_snippet",
+        "arguments": {
+            "snippetname": "test-snippet",
+            "snippet": "This is a test snippet content"
+        }
+    }
+}
+
+### 8. MCP Message - Get a snippet (with authentication)
+POST {{baseUrl}}{{mcpPath}}/message
+Content-Type: application/json
+Authorization: Bearer YOUR_ENCRYPTED_SESSION_KEY
+
+{
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+        "name": "get_snippet",
+        "arguments": {
+            "snippetname": "test-snippet"
+        }
+    }
+}
+
+### 9. Test CORS preflight request
+OPTIONS {{baseUrl}}{{mcpPath}}/sse
+Origin: http://localhost:3000
+Access-Control-Request-Method: GET
+Access-Control-Request-Headers: Authorization
+
+### 10. Test CORS preflight for message endpoint
+OPTIONS {{baseUrl}}{{mcpPath}}/message
+Origin: http://localhost:3000
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: Content-Type, Authorization
+
+###
+# TROUBLESHOOTING 401 "Not authorized" Error:
+# ===========================================
+#
+# The 401 error is EXPECTED for direct HTTP requests because this MCP server
+# requires OAuth2 authentication through Azure API Management.
+#
+# RECOMMENDED TESTING METHOD:
+# ===========================
+# 
+# Use MCP Inspector (the official MCP testing tool):
+# 
+# 1. In a new terminal, run:
+#    npx @modelcontextprotocol/inspector
+# 
+# 2. Open the web interface (usually http://127.0.0.1:6274)
+# 
+# 3. Configure the connection:
+#    - Transport: SSE
+#    - URL: https://apim-hvsvkzkl6s2ra.azure-api.net/mcp/sse
+#    - Click "Connect"
+# 
+# 4. The MCP Inspector will handle the OAuth2 flow automatically
+# 
+# 5. Once connected, you can:
+#    - List Tools
+#    - Call individual tools (hello_mcp, save_snippet, get_snippet)
+#
+# MANUAL OAUTH2 FLOW (Advanced):
+# ==============================
+# 
+# If you want to implement your own MCP client:
+# 
+# 1. Register your client with POST /register
+# 2. Get OAuth2 metadata from /.well-known/oauth_authorization_server
+# 3. Redirect user to /authorize with PKCE parameters
+# 4. Exchange auth code for encrypted session key at /token
+# 5. Use encrypted session key as Bearer token in Authorization header
+#
+# ARCHITECTURE NOTES:
+# ==================
+# 
+# - Azure API Management acts as OAuth2 authorization server
+# - Tokens are encrypted using AES before being sent to clients
+# - APIM policies decrypt tokens and validate against Entra ID
+# - Function App uses managed identity for Azure services access
+#
+# Available MCP Tools:
+# ===================
+# 1. hello_mcp: Simple greeting tool (no parameters)
+# 2. save_snippet: Save a text snippet to Azure Blob Storage
+#    - Parameters: snippetname (string), snippet (string)
+# 3. get_snippet: Retrieve a saved snippet from Azure Blob Storage  
+#    - Parameters: snippetname (string)
+#
+# Expected HTTP Status Codes:
+# ===========================
+# - 401 Unauthorized: Missing/invalid authorization (normal for direct HTTP tests)
+# - 200 OK: Successful authenticated request
+# - 400 Bad Request: Invalid MCP JSON-RPC format
+# - 500 Internal Server Error: Server-side issue
