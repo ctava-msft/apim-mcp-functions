@@ -33,13 +33,28 @@ This solution enables you to:
 
 ### Available MCP Tools
 
-The sample includes three ready-to-use agent tools:
+The sample includes ready-to-use agent tools for both general purpose and security use cases:
 
+#### **General Purpose Tools**
 | Tool | Purpose | AI Agent Use Case |
 |------|---------|-------------------|
 | `hello_mcp` | Simple greeting tool | Test agent connectivity and basic tool calling |
 | `save_snippet` | Store code/text snippets | Let agents save information for later retrieval |
 | `get_snippet` | Retrieve stored snippets | Enable agents to access previously saved data |
+
+#### **🛡️ Security Admin Agent Tools**
+| Tool | Purpose | AI Agent Use Case |
+|------|---------|-------------------|
+| `analyze_security_threat` | AI-powered threat analysis | Analyze security events and detect potential threats using intelligent pattern matching |
+| `query_security_events` | Historical security data | Query and filter security events by severity, type, and time range |
+| `generate_incident_response` | Incident response plans | Generate detailed response plans for data breaches, malware, unauthorized access, etc. |
+
+**Security Agent Features:**
+- 🔍 **AI Threat Analysis** - Intelligent security event classification and risk assessment
+- 📊 **Event Querying** - Filter security events by severity (critical, high, medium, low) with flexible limits
+- 🚨 **Incident Response** - Generate comprehensive response plans with immediate, short-term, and recovery actions
+- 📋 **Sample Security Data** - Includes realistic security events for authentication failures, network intrusions, and data access violations
+- 🎯 **Pattern Recognition** - Smart analysis of login failures, network anomalies, and data access patterns
 
 This architecture follows the latest [MCP Authorization specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization#2-10-third-party-authorization-flow) and provides a [detailed sequence diagram](infra/app/apim-oauth/diagrams/diagrams.md) of the agent interaction flow.
 
@@ -113,10 +128,117 @@ This comprehensive test validates your AI agent infrastructure:
 │  🚀 Tool Execution: ✅ SUCCESS    📊 Agent Backend: 🎉 READY                   │
 │                                                                                 │
 │  🤖 Available Agent Tools: hello_mcp, get_snippet, save_snippet               │
+│  🛡️ Security Agent Tools: analyze_security_threat, query_security_events,     │
+│      generate_incident_response                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 📖 **Detailed Testing Guide**: See [TESTING.md](TESTING.md) for complete testing instructions, troubleshooting, and integration examples.  
+
+
+## 🛡️ Security Admin Agent Usage
+
+The Security Admin Agent provides comprehensive security monitoring, threat detection, and incident response capabilities through both MCP tools and direct HTTP APIs.
+
+### 🚀 Security MCP Tools in Action
+
+**Analyze Security Threats**
+```bash
+# Connect your AI agent and use natural language
+"Analyze this security event: Multiple failed login attempts from IP 192.168.1.100"
+```
+
+The `analyze_security_threat` tool provides intelligent analysis:
+- 🔍 **Threat Classification**: Identifies attack patterns (brute force, intrusion, data violation)
+- ⚠️ **Risk Assessment**: Categorizes threat levels (Critical, High, Medium, Low)  
+- 📋 **Actionable Recommendations**: Specific steps to mitigate the threat
+- 🛡️ **Defense Strategies**: Immediate and long-term protective measures
+
+**Query Security Events** 
+```bash
+# Find critical security events
+"Show me all critical security events from today"
+
+# Query by severity
+"Find all high severity authentication failures"
+```
+
+**Generate Incident Response Plans**
+```bash
+# Get comprehensive response plans
+"Generate incident response plan for data breach with critical severity"
+
+# Specific incident types
+"Create response plan for malware incident, high severity"
+```
+
+### 📡 Direct HTTP API Usage
+
+**Threat Analysis Endpoint**
+```bash
+curl -X POST "https://your-function-app.azurewebsites.net/api/analyze-threat" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Suspicious network activity detected on port 22"}'
+```
+
+**Security Events Query**
+```bash
+# Get all security events
+curl "https://your-function-app.azurewebsites.net/api/security-events"
+
+# Filter by severity
+curl "https://your-function-app.azurewebsites.net/api/security-events?severity=critical&limit=10"
+```
+
+**Incident Response Generation**
+```bash
+curl -X POST "https://your-function-app.azurewebsites.net/api/incident-response" \
+  -H "Content-Type: application/json" \
+  -d '{"incident_type": "data_breach", "severity": "high"}'
+```
+
+**Upload Security Logs**
+```bash
+curl -X POST "https://your-function-app.azurewebsites.net/api/security-logs" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "logs": [
+      {
+        "event_type": "authentication_failure",
+        "severity": "high",
+        "source_ip": "192.168.1.100",
+        "description": "Multiple failed login attempts",
+        "user_account": "admin@company.com"
+      }
+    ]
+  }'
+```
+
+**Health Check**
+```bash
+curl "https://your-function-app.azurewebsites.net/api/health"
+```
+
+### 🎯 Sample Security Scenarios
+
+The Security Admin Agent comes with realistic sample data for testing:
+
+| Event Type | Severity | Description |
+|------------|----------|-------------|
+| `authentication_failure` | High | Multiple failed login attempts from suspicious IPs |
+| `network_intrusion` | Critical | Unauthorized network access and port scanning |
+| `data_access_violation` | Medium | Attempts to access restricted sensitive data |
+
+### 💡 Natural Language Security Queries
+
+AI agents can use natural language to interact with security data:
+
+- *"Show me all critical security events from the last 24 hours"*
+- *"Find all failed authentication attempts today"*  
+- *"Analyze potential data exfiltration events"*
+- *"Show me all incidents involving privileged accounts"*
+- *"Find security events from suspicious IP addresses"*
+- *"Generate response plan for potential insider threat"*
 
 
 ## AI Agent Architecture Overview
