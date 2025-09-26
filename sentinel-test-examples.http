@@ -1,0 +1,100 @@
+### Microsoft Sentinel AI Agent Test Examples
+### Use this file with REST Client extensions or tools like curl/Postman
+
+# Variable for the webhook URL (replace with your actual deployment URL)
+@webhookUrl = https://your-apim.azure-api.net/sentinel/ai-agent/webhook
+
+### Test 1: High Severity Incident with Account and Host
+POST {{webhookUrl}}
+Content-Type: application/json
+
+{
+  "incidentId": "12345",
+  "severity": "High",
+  "entities": [
+    {"type": "Account", "name": "user@domain.com"},
+    {"type": "Host", "name": "host01"}
+  ],
+  "alertContext": {
+    "description": "Suspicious login detected",
+    "timestamp": "2025-09-26T18:44:12Z"
+  }
+}
+
+### Test 2: Critical Malware Incident
+POST {{webhookUrl}}
+Content-Type: application/json
+
+{
+  "incidentId": "MAL-001",
+  "severity": "Critical",
+  "entities": [
+    {"type": "Host", "name": "workstation-05"},
+    {"type": "Account", "name": "admin@company.com"}
+  ],
+  "alertContext": {
+    "description": "Malicious file detected with lateral movement indicators",
+    "timestamp": "2025-09-26T20:15:30Z"
+  }
+}
+
+### Test 3: Medium Severity Network Incident
+POST {{webhookUrl}}
+Content-Type: application/json
+
+{
+  "incidentId": "NET-456",
+  "severity": "Medium",
+  "entities": [
+    {"type": "IP", "name": "192.168.1.100"}
+  ],
+  "alertContext": {
+    "description": "Unusual network traffic pattern detected",
+    "timestamp": "2025-09-26T19:30:00Z"
+  }
+}
+
+### Test 4: Invalid Request (Missing Required Fields) - Should return 400
+POST {{webhookUrl}}
+Content-Type: application/json
+
+{
+  "incidentId": "INVALID-01",
+  "severity": "High"
+}
+
+### Test 5: Authentication Attack Pattern
+POST {{webhookUrl}}
+Content-Type: application/json
+
+{
+  "incidentId": "AUTH-789",
+  "severity": "High",
+  "entities": [
+    {"type": "Account", "name": "test@example.com"}
+  ],
+  "alertContext": {
+    "description": "Suspicious login activity detected from unusual location",
+    "timestamp": "2025-09-26T18:44:12Z"
+  }
+}
+
+### Expected Response Structure:
+# {
+#   "recommendations": [
+#     "Disable account user@domain.com immediately",
+#     "Reset password for account user@domain.com",
+#     "Review recent login activity for user@domain.com",
+#     "Isolate host host01 from network",
+#     "Run full antivirus scan on host01",
+#     "Investigate host01 for lateral movement indicators",
+#     "Implement additional MFA requirements"
+#   ],
+#   "confidenceScore": 0.9,
+#   "enrichment": {
+#     "threat_category": "Authentication Attack",
+#     "threat_intel": "Incident requires immediate attention due to high severity"
+#   },
+#   "processedAt": "2025-09-26T22:51:23.456789Z",
+#   "incidentId": "12345"
+# }
