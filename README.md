@@ -33,13 +33,27 @@ This solution enables you to:
 
 ### Available MCP Tools
 
-The sample includes three ready-to-use agent tools:
+The sample includes ready-to-use agent tools:
 
+**Core MCP Tools:**
 | Tool | Purpose | AI Agent Use Case |
 |------|---------|-------------------|
 | `hello_mcp` | Simple greeting tool | Test agent connectivity and basic tool calling |
 | `save_snippet` | Store code/text snippets | Let agents save information for later retrieval |
 | `get_snippet` | Retrieve stored snippets | Enable agents to access previously saved data |
+
+**🏦 Loan Agent Tools:**
+| Tool | Purpose | AI Agent Use Case |
+|------|---------|-------------------|
+| `get_loan_policy` | Retrieve loan policies | AI agents access current lending guidelines |
+| `get_customer_history` | Customer financial history | AI agents verify customer background |
+| `get_risk_profile` | Calculate risk assessment | AI agents evaluate default probability |
+| `get_special_vehicles` | Special vehicle financing | AI agents handle luxury/electric/commercial vehicles |
+| `validate_loan_application` | Validate applications | AI agents check business rule compliance |
+| `calculate_loan_terms` | Calculate rates & payments | AI agents provide accurate loan pricing |
+| `evaluate_loan_risk` | Multi-factor risk analysis | AI agents perform comprehensive risk evaluation |
+| `generate_loan_decision` | AI-powered decisions | AI agents make approve/reject determinations |
+| `save_loan_decision` | Store decisions & audit | AI agents maintain compliance records |
 
 This architecture follows the latest [MCP Authorization specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization#2-10-third-party-authorization-flow) and provides a [detailed sequence diagram](infra/app/apim-oauth/diagrams/diagrams.md) of the agent interaction flow.
 
@@ -112,7 +126,7 @@ This comprehensive test validates your AI agent infrastructure:
 │  🔗 Agent Session: ✅ CONNECTED   🛠️  Tool Discovery: ✅ SUCCESS                │
 │  🚀 Tool Execution: ✅ SUCCESS    📊 Agent Backend: 🎉 READY                   │
 │                                                                                 │
-│  🤖 Available Agent Tools: hello_mcp, get_snippet, save_snippet               │
+│  🤖 Available Agent Tools: hello_mcp, get_snippet, save_snippet, loan_agent_tools (6) │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -341,6 +355,51 @@ def calculate_roi(context):
     # Complex calculations, ML models, etc.
     return analysis_results
 ```
+
+## 🏦 Loan Agent Example
+
+This repository includes a complete **AI Loan Agent** implementation with 6 specialized MCP tools for automated loan processing:
+
+### Loan Processing Tools
+
+| Tool Name | Description | Use Case |
+|-----------|-------------|----------|
+| `get_loan_policy` | Retrieve loan approval policies | AI agents access current lending policies |
+| `get_customer_history` | Customer banking & credit history | AI agents verify customer financial background |
+| `get_risk_profile` | Calculate comprehensive risk assessment | AI agents evaluate loan default probability |
+| `get_special_vehicles` | Special vehicle financing terms | AI agents handle luxury, electric, commercial vehicles |
+| `validate_loan_application` | Validate application completeness | AI agents check business rules compliance |
+| `calculate_loan_terms` | Calculate rates & payments | AI agents provide accurate loan pricing |
+| `evaluate_loan_risk` | Multi-factor risk evaluation | AI agents perform comprehensive risk analysis |
+| `generate_loan_decision` | AI-powered approval decisions | AI agents make approve/reject determinations |
+| `save_loan_decision` | Store decisions with audit trail | AI agents maintain compliance records |
+
+### Example Loan Workflow
+
+```mermaid
+flowchart TD
+    A[Loan Application] --> B[validate_loan_application]
+    B --> C[get_customer_history]
+    C --> D[get_risk_profile]
+    B --> E[get_special_vehicles]
+    D --> F[evaluate_loan_risk]
+    E --> F
+    F --> G[generate_loan_decision]
+    G --> H[calculate_loan_terms]
+    H --> I[save_loan_decision]
+    G --> J{Decision}
+    J -->|Approved| I
+    J -->|Rejected| I
+    J -->|Pending| K[Human Review]
+```
+
+The loan agent handles complex scenarios including:
+- **Multi-factor risk assessment** (credit, income, vehicle type)
+- **Dynamic interest rate calculation** based on risk profile
+- **Special vehicle financing** (luxury, electric, commercial, classic)
+- **Automated decision making** with human escalation
+- **Compliance validation** and audit trail generation
+
 
 ### 📚 Additional Resources
 
