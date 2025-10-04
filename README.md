@@ -35,11 +35,11 @@ This solution enables you to:
 
 The sample includes three ready-to-use agent tools:
 
-| Tool | Purpose | AI Agent Use Case |
-|------|---------|-------------------|
-| `hello_mcp` | Simple greeting tool | Test agent connectivity and basic tool calling |
-| `save_snippet` | Store code/text snippets | Let agents save information for later retrieval |
-| `get_snippet` | Retrieve stored snippets | Enable agents to access previously saved data |
+| Tool             | Purpose                  | AI Agent Use Case                                 |
+|------------------|--------------------------|---------------------------------------------------|
+| `hello_mcp`      | Simple greeting tool     | Test agent connectivity and basic tool calling    |
+| `save_snippet`   | Store code/text snippets | Let agents save information for later retrieval   |
+| `get_snippet`    | Retrieve stored snippets | Enable agents to access previously saved data     |
 
 This architecture follows the latest [MCP Authorization specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization#2-10-third-party-authorization-flow) and provides a [detailed sequence diagram](infra/app/apim-oauth/diagrams/diagrams.md) of the agent interaction flow.
 
@@ -106,14 +106,13 @@ This comprehensive test validates your AI agent infrastructure:
 
 **Expected Agent Test Results:**
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                    🤖 AI Agent Backend Validation                               │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│  🔗 Agent Session: ✅ CONNECTED   🛠️  Tool Discovery: ✅ SUCCESS                │
-│  🚀 Tool Execution: ✅ SUCCESS    📊 Agent Backend: 🎉 READY                   │
-│                                                                                 │
-│  🤖 Available Agent Tools: hello_mcp, get_snippet, save_snippet               │
-└─────────────────────────────────────────────────────────────────────────────────┘
+🤖 AI Agent Backend Validation
+| Component             | Status          |
+|-----------------------|-----------------|
+| 🔗 Agent Session      | ✅ CONNECTED   |
+| 🛠️ Tool Discovery     | ✅ SUCCESS     |
+| 🚀 Tool Execution     | ✅ SUCCESS     |
+| 📊 Agent Backend      | 🎉 READY       |
 ```
 
 📖 **Detailed Testing Guide**: See [TESTING.md](TESTING.md) for complete testing instructions, troubleshooting, and integration examples.  
@@ -243,12 +242,12 @@ Your AI agents will automatically discover and can use your new `get_weather` to
 
 ### Common Agent Tool Patterns
 
-| Tool Type | Example | Agent Use Case |
-|-----------|---------|----------------|
-| **Data Retrieval** | `get_customer_info`, `search_documents` | Agents access enterprise data |
-| **Actions** | `send_email`, `create_ticket` | Agents perform tasks |
-| **Calculations** | `calculate_roi`, `forecast_sales` | Agents do complex math |
-| **External APIs** | `get_weather`, `translate_text` | Agents use third-party services |
+| Tool Type           | Example                                  | Agent Use Case                  |
+|---------------------|------------------------------------------|---------------------------------|
+| **Data Retrieval**  | `get_customer_info`, `search_documents`  | Agents access enterprise data   |
+| **Actions**         | `send_email`, `create_ticket`            | Agents perform tasks            |
+| **Calculations**    | `calculate_roi`, `forecast_sales`        | Agents do complex math          |
+| **External APIs**   | `get_weather`, `translate_text`          | Agents use third-party services |
 
 ## Technical Implementation Details
 
