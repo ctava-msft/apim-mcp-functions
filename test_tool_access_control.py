@@ -134,7 +134,18 @@ async def test_tool_access_control():
         print(f"Please run the OAuth flow first to generate mcp_tokens.json")
         return False
     
-    base_url = 'https://apim-hvsvkzkl6s2ra.azure-api.net/mcp'
+    # Get base URL from environment or tokens file
+    import os
+    base_url = os.getenv('MCP_BASE_URL')
+    if not base_url:
+        # Try to get from tokens file
+        try:
+            with open('mcp_tokens.json', 'r') as f:
+                tokens = json.load(f)
+                base_url = tokens.get('base_url', 'https://apim-hvsvkzkl6s2ra.azure-api.net/mcp')
+        except:
+            # Fallback to default
+            base_url = 'https://apim-hvsvkzkl6s2ra.azure-api.net/mcp'
     
     print("="*70)
     print("🔒 MCP Tool Access Control Test")

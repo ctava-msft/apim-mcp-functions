@@ -70,21 +70,34 @@
                 string payloadJson = Encoding.UTF8.GetString(payloadBytes);
                 JObject payloadObj = JObject.Parse(payloadJson);
                 
-                // Extract roles from token (common claim names)
+                // Extract roles from token (support both 'roles' and 'groups' claims)
                 JArray roles = new JArray();
+                HashSet<string> uniqueRoles = new HashSet<string>();
                 
-                // Check 'roles' claim (common in Entra ID)
+                // Check 'roles' claim (common in Entra ID app roles)
                 if (payloadObj["roles"] != null) {
                     foreach (var role in payloadObj["roles"]) {
-                        roles.Add(role.ToString());
+                        string roleStr = role.ToString();
+                        if (!string.IsNullOrEmpty(roleStr)) {
+                            uniqueRoles.Add(roleStr);
+                        }
                     }
                 }
                 
-                // Check 'groups' claim (alternative in Entra ID)
-                if (payloadObj["groups"] != null && roles.Count == 0) {
+                // Also check 'groups' claim (Entra ID group memberships)
+                // Combine both claims to support flexible role assignment
+                if (payloadObj["groups"] != null) {
                     foreach (var group in payloadObj["groups"]) {
-                        roles.Add(group.ToString());
+                        string groupStr = group.ToString();
+                        if (!string.IsNullOrEmpty(groupStr)) {
+                            uniqueRoles.Add(groupStr);
+                        }
                     }
+                }
+                
+                // Convert unique roles to JArray
+                foreach (var role in uniqueRoles) {
+                    roles.Add(role);
                 }
                 
                 // If no roles found, assign default 'user' role
@@ -167,6 +180,86 @@
             <value>@(context.Variables.GetValueOrDefault<JArray>("allowedTools").ToString(Newtonsoft.Json.Formatting.None))</value>
         </set-header>
         
+        <!-- Validate tools/call requests before forwarding to backend -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.EndsWith("/message") && context.Request.Method == "POST")">
+                <set-variable name="requestBody" value="@(context.Request.Body.As<string>(preserveContent: true))" />
+                <set-variable name="requestData" value="@{
+                    try {
+                        string body = context.Variables.GetValueOrDefault<string>("requestBody");
+                        if (string.IsNullOrEmpty(body)) {
+                            return null;
+                        }
+                        return JObject.Parse(body);
+                    } catch {
+                        return null;
+                    }
+                }" />
+                
+                <set-variable name="requestMethod" value="@{
+                    JObject request = context.Variables.GetValueOrDefault<JObject>("requestData");
+                    return request?["method"]?.ToString() ?? "";
+                }" />
+                
+                <set-variable name="requestId" value="@{
+                    JObject request = context.Variables.GetValueOrDefault<JObject>("requestData");
+                    return request?["id"]?.ToString() ?? "unknown";
+                }" />
+                
+                <!-- For tools/call, validate the requested tool is allowed -->
+                <choose>
+                    <when condition="@(context.Variables.GetValueOrDefault<string>("requestMethod") == "tools/call")">
+                        <set-variable name="requestedTool" value="@{
+                            JObject request = context.Variables.GetValueOrDefault<JObject>("requestData");
+                            return request?["params"]?["name"]?.ToString() ?? "";
+                        }" />
+                        
+                        <set-variable name="isToolAllowed" value="@{
+                            string requestedTool = context.Variables.GetValueOrDefault<string>("requestedTool");
+                            JArray allowedTools = context.Variables.GetValueOrDefault<JArray>("allowedTools");
+                            
+                            if (string.IsNullOrEmpty(requestedTool)) {
+                                return false;
+                            }
+                            
+                            foreach (var tool in allowedTools) {
+                                if (tool.ToString() == requestedTool) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }" />
+                        
+                        <!-- Block if tool is not allowed (before reaching backend) -->
+                        <choose>
+                            <when condition="@(!context.Variables.GetValueOrDefault<bool>("isToolAllowed"))">
+                                <return-response>
+                                    <set-status code="403" reason="Forbidden" />
+                                    <set-header name="Content-Type" exists-action="override">
+                                        <value>application/json</value>
+                                    </set-header>
+                                    <set-body>@{
+                                        string requestedTool = context.Variables.GetValueOrDefault<string>("requestedTool");
+                                        string requestId = context.Variables.GetValueOrDefault<string>("requestId");
+                                        JArray userRoles = context.Variables.GetValueOrDefault<JArray>("userRoles");
+                                        
+                                        JObject error = new JObject();
+                                        error["jsonrpc"] = "2.0";
+                                        error["id"] = requestId;  // Use actual request ID for proper correlation
+                                        error["error"] = new JObject();
+                                        error["error"]["code"] = -32001;
+                                        error["error"]["message"] = $"Access denied: Tool '{requestedTool}' is not available for your role(s): {userRoles.ToString(Newtonsoft.Json.Formatting.None)}";
+                                        
+                                        return error.ToString();
+                                    }</set-body>
+                                </return-response>
+                            </when>
+                        </choose>
+                    </when>
+                </choose>
+            </when>
+        </choose>
+        
         <set-header name="x-functions-key" exists-action="override">
             <value>{{function-host-key}}</value>
         </set-header>
@@ -179,126 +272,58 @@
         
         <!-- Filter tools/list response based on user permissions -->
         <choose>
-            <when condition="@(context.Request.Url.Path.EndsWith("/message") && context.Request.Method == "POST")">
-                <!-- Check if this is a tools/list or tools/call request -->
-                <set-variable name="requestBody" value="@(context.Request.Body.As<string>(preserveContent: true))" />
-                <set-variable name="isToolsRequest" value="@{
+            <when condition="@(context.Variables.GetValueOrDefault<string>("requestMethod") == "tools/list" && context.Response.StatusCode == 200)">
+                <set-variable name="originalResponse" value="@(context.Response.Body.As<string>(preserveContent: true))" />
+                <set-body>@{
                     try {
-                        string body = context.Variables.GetValueOrDefault<string>("requestBody");
-                        if (string.IsNullOrEmpty(body)) {
-                            return false;
+                        string responseBody = context.Variables.GetValueOrDefault<string>("originalResponse");
+                        JArray allowedTools = context.Variables.GetValueOrDefault<JArray>("allowedTools");
+                        
+                        // Parse the response
+                        JObject response = JObject.Parse(responseBody);
+                        
+                        // Check if it's a successful tools/list response
+                        if (response["result"] != null && response["result"]["tools"] != null) {
+                            JArray allTools = (JArray)response["result"]["tools"];
+                            JArray filteredTools = new JArray();
+                            
+                            // Filter tools based on allowed list
+                            foreach (var tool in allTools) {
+                                string toolName = tool["name"]?.ToString();
+                                bool isAllowed = false;
+                                
+                                foreach (var allowedTool in allowedTools) {
+                                    if (allowedTool.ToString() == toolName) {
+                                        isAllowed = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if (isAllowed) {
+                                    filteredTools.Add(tool);
+                                }
+                            }
+                            
+                            // Replace tools array with filtered version
+                            response["result"]["tools"] = filteredTools;
                         }
                         
-                        JObject request = JObject.Parse(body);
-                        string method = request["method"]?.ToString();
+                        return response.ToString(Newtonsoft.Json.Formatting.None);
+                    } catch (Exception ex) {
+                        // Log error and return error response instead of exposing unfiltered data
+                        JObject request = context.Variables.GetValueOrDefault<JObject>("requestData");
+                        string requestId = request?["id"]?.ToString() ?? "unknown";
                         
-                        return method == "tools/list" || method == "tools/call";
-                    } catch {
-                        return false;
+                        JObject errorResponse = new JObject();
+                        errorResponse["jsonrpc"] = "2.0";
+                        errorResponse["id"] = requestId;
+                        errorResponse["error"] = new JObject();
+                        errorResponse["error"]["code"] = -32603;
+                        errorResponse["error"]["message"] = "Internal error: Failed to filter tools list";
+                        
+                        return errorResponse.ToString();
                     }
-                }" />
-                
-                <choose>
-                    <when condition="@(context.Variables.GetValueOrDefault<bool>("isToolsRequest"))">
-                        <set-variable name="requestMethod" value="@{
-                            string body = context.Variables.GetValueOrDefault<string>("requestBody");
-                            JObject request = JObject.Parse(body);
-                            return request["method"]?.ToString();
-                        }" />
-                        
-                        <!-- For tools/call, validate the requested tool is allowed -->
-                        <choose>
-                            <when condition="@(context.Variables.GetValueOrDefault<string>("requestMethod") == "tools/call")">
-                                <set-variable name="requestedTool" value="@{
-                                    string body = context.Variables.GetValueOrDefault<string>("requestBody");
-                                    JObject request = JObject.Parse(body);
-                                    return request["params"]?["name"]?.ToString() ?? "";
-                                }" />
-                                
-                                <set-variable name="isToolAllowed" value="@{
-                                    string requestedTool = context.Variables.GetValueOrDefault<string>("requestedTool");
-                                    JArray allowedTools = context.Variables.GetValueOrDefault<JArray>("allowedTools");
-                                    
-                                    foreach (var tool in allowedTools) {
-                                        if (tool.ToString() == requestedTool) {
-                                            return true;
-                                        }
-                                    }
-                                    return false;
-                                }" />
-                                
-                                <!-- Block if tool is not allowed -->
-                                <choose>
-                                    <when condition="@(!context.Variables.GetValueOrDefault<bool>("isToolAllowed"))">
-                                        <return-response>
-                                            <set-status code="403" reason="Forbidden" />
-                                            <set-header name="Content-Type" exists-action="override">
-                                                <value>application/json</value>
-                                            </set-header>
-                                            <set-body>@{
-                                                string requestedTool = context.Variables.GetValueOrDefault<string>("requestedTool");
-                                                JArray userRoles = context.Variables.GetValueOrDefault<JArray>("userRoles");
-                                                
-                                                JObject error = new JObject();
-                                                error["jsonrpc"] = "2.0";
-                                                error["id"] = null;
-                                                error["error"] = new JObject();
-                                                error["error"]["code"] = -32001;
-                                                error["error"]["message"] = $"Access denied: Tool '{requestedTool}' is not available for your role(s): {userRoles.ToString(Newtonsoft.Json.Formatting.None)}";
-                                                
-                                                return error.ToString();
-                                            }</set-body>
-                                        </return-response>
-                                    </when>
-                                </choose>
-                            </when>
-                            <!-- For tools/list, filter the response to only include allowed tools -->
-                            <when condition="@(context.Variables.GetValueOrDefault<string>("requestMethod") == "tools/list" && context.Response.StatusCode == 200)">
-                                <set-variable name="originalResponse" value="@(context.Response.Body.As<string>(preserveContent: true))" />
-                                <set-body>@{
-                                    try {
-                                        string responseBody = context.Variables.GetValueOrDefault<string>("originalResponse");
-                                        JArray allowedTools = context.Variables.GetValueOrDefault<JArray>("allowedTools");
-                                        
-                                        // Parse the response
-                                        JObject response = JObject.Parse(responseBody);
-                                        
-                                        // Check if it's a successful tools/list response
-                                        if (response["result"] != null && response["result"]["tools"] != null) {
-                                            JArray allTools = (JArray)response["result"]["tools"];
-                                            JArray filteredTools = new JArray();
-                                            
-                                            // Filter tools based on allowed list
-                                            foreach (var tool in allTools) {
-                                                string toolName = tool["name"]?.ToString();
-                                                bool isAllowed = false;
-                                                
-                                                foreach (var allowedTool in allowedTools) {
-                                                    if (allowedTool.ToString() == toolName) {
-                                                        isAllowed = true;
-                                                        break;
-                                                    }
-                                                }
-                                                
-                                                if (isAllowed) {
-                                                    filteredTools.Add(tool);
-                                                }
-                                            }
-                                            
-                                            // Replace tools array with filtered version
-                                            response["result"]["tools"] = filteredTools;
-                                        }
-                                        
-                                        return response.ToString(Newtonsoft.Json.Formatting.None);
-                                    } catch (Exception ex) {
-                                        // If filtering fails, return original response
-                                        return context.Variables.GetValueOrDefault<string>("originalResponse");
-                                    }
-                                }</set-body>
-                            </when>
-                        </choose>
-                    </when>
-                </choose>
+                }</set-body>
             </when>
         </choose>
     </outbound>
