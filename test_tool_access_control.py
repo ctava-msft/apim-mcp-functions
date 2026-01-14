@@ -19,6 +19,7 @@ Requirements:
 
 import asyncio
 import json
+import os
 import aiohttp
 import sys
 from typing import Dict, Any, Optional
@@ -135,7 +136,6 @@ async def test_tool_access_control():
         return False
     
     # Get base URL from environment or tokens file
-    import os
     base_url = os.getenv('MCP_BASE_URL')
     if not base_url:
         # Try to get from tokens file
