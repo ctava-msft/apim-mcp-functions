@@ -21,6 +21,7 @@ import asyncio
 import json
 import os
 import aiohttp
+import re
 import sys
 from typing import Dict, Any, Optional
 
@@ -30,6 +31,7 @@ class MCPAccessControlTester:
         self.auth_token = auth_token
         self.session = None
         self.sse_response = None
+        self.session_message_url = None
         
     async def __aenter__(self):
         cookie_jar = aiohttp.CookieJar()
@@ -48,7 +50,7 @@ class MCPAccessControlTester:
             await self.session.close()
     
     async def establish_sse_session(self) -> bool:
-        """Establish SSE connection"""
+        """Establish SSE connection and capture session-specific message URL"""
         try:
             print(f"🔗 Establishing SSE session to: {self.base_url}/sse")
             
@@ -63,6 +65,24 @@ class MCPAccessControlTester:
             
             if self.sse_response.status == 200:
                 print("✅ SSE connection established")
+
+                # Try to read initial SSE data to extract the message URL (session context)
+                try:
+                    async for chunk in self.sse_response.content.iter_chunked(1024):
+                        if chunk:
+                            data = chunk.decode('utf-8', errors='ignore')
+                            # Look for something like: data: message?session=...
+                            match = re.search(r'data:\s*(message\?[\w\-=&%]+)', data)
+                            if match:
+                                session_path = match.group(1).lstrip('/')
+                                self.session_message_url = f"{self.base_url}/{session_path}"
+                                print(f"🎯 Captured session message URL: {self.session_message_url}")
+                            break
+                    if not self.session_message_url:
+                        print("⚠️  No session URL found in initial SSE data; will use generic /message")
+                except Exception as e:
+                    print(f"⚠️  SSE initial read warning: {e}")
+
                 # Give it a moment to initialize
                 await asyncio.sleep(1)
                 return True
@@ -73,6 +93,31 @@ class MCPAccessControlTester:
         except Exception as e:
             print(f"❌ SSE connection error: {e}")
             return False
+
+    async def listen_for_sse_response(self, timeout: int = 10) -> Optional[Dict[str, Any]]:
+        """Listen for JSON-RPC response on the SSE stream"""
+        if not self.sse_response:
+            return None
+        try:
+            print(f"👂 Listening for SSE response (timeout: {timeout}s)...")
+            async with asyncio.timeout(timeout):
+                async for chunk in self.sse_response.content.iter_chunked(1024):
+                    if chunk:
+                        data = chunk.decode('utf-8', errors='ignore')
+                        print(f"📡 SSE Response Data: {data}")
+                        json_match = re.search(r'data:\s*(\{.*\})', data, re.DOTALL)
+                        if json_match:
+                            try:
+                                return json.loads(json_match.group(1))
+                            except json.JSONDecodeError as e:
+                                print(f"⚠️  JSON decode error: {e}")
+                                continue
+                        await asyncio.sleep(0.1)
+        except asyncio.TimeoutError:
+            print(f"⏰ SSE response timeout after {timeout}s")
+        except Exception as e:
+            print(f"❌ SSE response error: {e}")
+        return None
     
     async def send_jsonrpc_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Send a JSON-RPC 2.0 request"""
@@ -88,8 +133,10 @@ class MCPAccessControlTester:
             jsonrpc_request["params"] = params
             
         print(f"📤 Sending JSON-RPC request: {method}")
-        
-        message_url = f'{self.base_url}/message'
+
+        # Prefer session-specific URL from SSE handshake if available
+        message_url = self.session_message_url if self.session_message_url else f'{self.base_url}/message'
+        print(f"🎯 Using message URL: {message_url}")
         
         try:
             async with self.session.post(
@@ -112,7 +159,12 @@ class MCPAccessControlTester:
                         return {"status": 403, "response": json.loads(response_text)}
                     except json.JSONDecodeError:
                         return {"status": 403, "response": response_text}
+                elif response.status == 202:
+                    # Accepted; actual JSON-RPC response will arrive via SSE
+                    return {"status": 202, "body": response_text}
                 else:
+                    # Print body to help debug unexpected responses (e.g., 400 Bad Request)
+                    print(f"⚠️  Unexpected status {response.status}, body:\n{response_text}\n")
                     return {
                         "error": f"HTTP {response.status}",
                         "status": response.status,
@@ -178,6 +230,12 @@ async def test_tool_access_control():
         
         tools_response = await tester.send_jsonrpc_request("tools/list")
         
+        if tools_response.get("status") == 202:
+            print("📡 HTTP 202 received - listening for response on SSE stream...")
+            sse_response = await tester.listen_for_sse_response()
+            if sse_response:
+                tools_response = sse_response
+
         if "result" in tools_response and "tools" in tools_response["result"]:
             tools = tools_response["result"]["tools"]
             print(f"✅ tools/list returned {len(tools)} tools based on user permissions:")
@@ -207,6 +265,12 @@ async def test_tool_access_control():
             "name": "hello_mcp",
             "arguments": {}
         })
+
+        if hello_response.get("status") == 202:
+            print("📡 HTTP 202 received - listening for tool response on SSE stream...")
+            sse_response = await tester.listen_for_sse_response()
+            if sse_response:
+                hello_response = sse_response
         
         if hello_response.get("status") == 403:
             print(f"❌ Unexpected 403 for hello_mcp (should be allowed for all users)")
@@ -232,6 +296,12 @@ async def test_tool_access_control():
                 "snippet": "test content"
             }
         })
+
+        if save_response.get("status") == 202:
+            print("📡 HTTP 202 received - listening for tool response on SSE stream...")
+            sse_response = await tester.listen_for_sse_response()
+            if sse_response:
+                save_response = sse_response
         
         if save_response.get("status") == 403:
             print(f"✅ Access control working: save_snippet correctly denied")
