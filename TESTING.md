@@ -8,13 +8,22 @@ Before running the test, ensure you have:
 - Python 3.7+ installed
 - Required Python packages: `aiohttp`, `asyncio`, `json`
 - A valid `mcp_tokens.json` file in the project root (generated after OAuth flow)
+- Environment variable `MCP_BASE_URL` set to your APIM endpoint (e.g., `https://your-apim.azure-api.net/mcp`)
+  - Alternatively, include `base_url` field in `mcp_tokens.json`
 
-### Running the Test
+### Running the Tests
 
 Execute the working test script:
 
 ```bash
+# Set your APIM endpoint
+export MCP_BASE_URL=https://your-apim.azure-api.net/mcp
+
+# Basic MCP functionality test
 python test_mcp_fixed_session.py
+
+# Tool access control test
+python test_tool_access_control.py
 ```
 
 ### Expected Output
@@ -62,7 +71,9 @@ When the test runs successfully, you should see output similar to this:
 🎉 SUCCESS: hello_mcp tool found and called successfully!
 ```
 
-### What the Test Validates
+### What the Tests Validate
+
+#### Basic MCP Test (`test_mcp_fixed_session.py`)
 
 The test performs the following validation steps:
 
@@ -73,6 +84,20 @@ The test performs the following validation steps:
    - `get_snippet`: Retrieve code snippets from storage  
    - `save_snippet`: Save code snippets to storage
 4. **🚀 Tool Execution**: Calls the `hello_mcp` tool and validates the response
+
+#### Tool Access Control Test (`test_tool_access_control.py`)
+
+This test validates the fine-grained tool access control implementation:
+
+1. **🔒 Permission-Based Filtering**: Verifies that `tools/list` only returns tools the user has permission to access
+2. **✅ Authorized Tool Calls**: Confirms that users can execute tools they have permission for
+3. **🚫 Unauthorized Tool Calls**: Validates that unauthorized tool access returns 403 Forbidden
+4. **📋 Role-Based Access**: Tests that different roles (admin, writer, reader, user) have appropriate tool access
+
+**To test different permission levels:**
+- Configure roles in Entra ID (admin, writer, reader, user) 
+- Assign users to different roles
+- Re-run the test with tokens from users with different roles
 
 ### Available MCP Tools
 

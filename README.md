@@ -240,6 +240,38 @@ python test_mcp_fixed_session.py
 
 Your AI agents will automatically discover and can use your new `get_weather` tool!
 
+#### 3. Configure Tool Access Permissions
+
+To control which users can access your new tool, update the role-to-tools mapping in `infra/app/apim-mcp/mcp-api.policy.xml`:
+
+```xml
+<!-- In the roleToolMapping variable -->
+<set-variable name="roleToolMapping" value="@{
+    JObject mapping = new JObject();
+    
+    // Admin role: access to all tools including new one
+    JArray adminTools = new JArray();
+    adminTools.Add("hello_mcp");
+    adminTools.Add("get_snippet");
+    adminTools.Add("save_snippet");
+    adminTools.Add("get_weather");  // Add new tool
+    mapping["admin"] = adminTools;
+    
+    // Configure other roles as needed...
+    return mapping;
+}" />
+```
+
+**Assigning Roles in Entra ID:**
+
+1. Navigate to your **Entra ID App Registration**
+2. Go to **App roles** section
+3. Create roles matching the policy configuration (e.g., `admin`, `writer`, `reader`)
+4. Assign users/groups to these roles in **Enterprise Applications**
+5. Ensure the `roles` claim is included in the token configuration
+
+Roles are extracted from the Entra ID token's `roles` or `groups` claim. Users without assigned roles default to the `user` role with minimal permissions.
+
 ### Common Agent Tool Patterns
 
 | Tool Type           | Example                                  | Agent Use Case                  |
@@ -289,7 +321,15 @@ The solution includes comprehensive security without compromising agent experien
 - Support for multiple agent types and use cases
 
 **🛡️ Tool Access Control**  
-- Fine-grained permissions for different agent capabilities
+- **Role-Based Access**: Fine-grained permissions control which tools each user/role can access
+  - `admin` role: Full access to all tools
+  - `writer` role: Access to hello_mcp, get_snippet, and save_snippet
+  - `reader` role: Access to hello_mcp and get_snippet only
+  - `user` role: Access to hello_mcp only (default for authenticated users)
+- **Enforcement at API Gateway**: APIM policy extracts roles from Entra ID token and filters available tools
+  - `tools/list` returns only tools the user has permission to access
+  - `tools/call` validates permission before executing the requested tool
+  - Returns 403 Forbidden with detailed error message for unauthorized tool access
 - Rate limiting to prevent agent abuse
 - Audit logging of all agent tool interactions
 
