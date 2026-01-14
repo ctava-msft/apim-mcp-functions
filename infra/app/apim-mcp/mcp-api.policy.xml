@@ -71,6 +71,9 @@
                 JObject payloadObj = JObject.Parse(payloadJson);
                 
                 // Extract roles from token (support both 'roles' and 'groups' claims)
+                // NOTE: Both app roles and group memberships are combined to support flexible
+                // role assignment. Group UUIDs/names should be mapped to role names in the
+                // roleToolMapping below (e.g., map specific group GUIDs to 'admin', 'writer', etc.)
                 JArray roles = new JArray();
                 HashSet<string> uniqueRoles = new HashSet<string>();
                 
@@ -245,7 +248,9 @@
                                         
                                         JObject error = new JObject();
                                         error["jsonrpc"] = "2.0";
-                                        error["id"] = requestId;  // Use actual request ID for proper correlation
+                                        // Use actual request ID to ensure JSON-RPC 2.0 compliance 
+                                        // (error response ID must match request ID for proper client correlation)
+                                        error["id"] = requestId;
                                         error["error"] = new JObject();
                                         error["error"]["code"] = -32001;
                                         error["error"]["message"] = $"Access denied: Tool '{requestedTool}' is not available for your role(s): {userRoles.ToString(Newtonsoft.Json.Formatting.None)}";
@@ -311,8 +316,8 @@
                         return response.ToString(Newtonsoft.Json.Formatting.None);
                     } catch (Exception ex) {
                         // Log error and return error response instead of exposing unfiltered data
-                        JObject request = context.Variables.GetValueOrDefault<JObject>("requestData");
-                        string requestId = request?["id"]?.ToString() ?? "unknown";
+                        // requestId was stored in inbound section and is available here
+                        string requestId = context.Variables.GetValueOrDefault<string>("requestId", "unknown");
                         
                         JObject errorResponse = new JObject();
                         errorResponse["jsonrpc"] = "2.0";

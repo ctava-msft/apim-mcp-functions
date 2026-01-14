@@ -142,10 +142,14 @@ async def test_tool_access_control():
         try:
             with open('mcp_tokens.json', 'r') as f:
                 tokens = json.load(f)
-                base_url = tokens.get('base_url', 'https://apim-hvsvkzkl6s2ra.azure-api.net/mcp')
+                base_url = tokens.get('base_url')
         except:
-            # Fallback to default
-            base_url = 'https://apim-hvsvkzkl6s2ra.azure-api.net/mcp'
+            pass
+    
+    if not base_url:
+        print("❌ MCP_BASE_URL environment variable or base_url in mcp_tokens.json is required")
+        print("   Set it with: export MCP_BASE_URL=https://your-apim.azure-api.net/mcp")
+        return False
     
     print("="*70)
     print("🔒 MCP Tool Access Control Test")

@@ -8,12 +8,17 @@ Before running the test, ensure you have:
 - Python 3.7+ installed
 - Required Python packages: `aiohttp`, `asyncio`, `json`
 - A valid `mcp_tokens.json` file in the project root (generated after OAuth flow)
+- Environment variable `MCP_BASE_URL` set to your APIM endpoint (e.g., `https://your-apim.azure-api.net/mcp`)
+  - Alternatively, include `base_url` field in `mcp_tokens.json`
 
 ### Running the Tests
 
 Execute the working test script:
 
 ```bash
+# Set your APIM endpoint
+export MCP_BASE_URL=https://your-apim.azure-api.net/mcp
+
 # Basic MCP functionality test
 python test_mcp_fixed_session.py
 
